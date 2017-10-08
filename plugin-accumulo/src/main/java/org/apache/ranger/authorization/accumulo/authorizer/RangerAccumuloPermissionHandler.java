@@ -18,8 +18,6 @@
  */
 package org.apache.ranger.authorization.accumulo.authorizer;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.NamespaceNotFoundException;
 import org.apache.accumulo.core.client.TableNotFoundException;
@@ -28,7 +26,6 @@ import org.apache.accumulo.core.security.NamespacePermission;
 import org.apache.accumulo.core.security.SystemPermission;
 import org.apache.accumulo.core.security.TablePermission;
 import org.apache.accumulo.core.security.thrift.TCredentials;
-import org.apache.accumulo.core.util.Base64;
 import org.apache.accumulo.server.security.handler.Authenticator;
 import org.apache.accumulo.server.security.handler.Authorizor;
 import org.apache.accumulo.server.security.handler.KerberosAuthenticator;
@@ -39,7 +36,6 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.ranger.audit.provider.MiscUtil;
 import org.apache.ranger.authorization.hadoop.config.RangerConfiguration;
-import org.apache.ranger.plugin.policyengine.RangerAccessRequest;
 import org.apache.ranger.plugin.policyengine.RangerAccessRequestImpl;
 import org.apache.ranger.plugin.policyengine.RangerAccessResourceImpl;
 import org.apache.ranger.plugin.policyengine.RangerAccessResult;
@@ -156,13 +152,20 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
     @Override
     public boolean hasNamespacePermission(String user, String namespace, NamespacePermission permission) throws AccumuloSecurityException,
             NamespaceNotFoundException {
-        return zkPermissionHandler.hasNamespacePermission(Base64.encodeBase64String(user.getBytes(UTF_8)), namespace, permission);
+        RangerAccessRequestImpl request = new RangerAccessRequestImpl();
+        request.setAccessType(permission.toString());
+        request.setUser(user);
+        RangerAccessResourceImpl resource = new RangerAccessResourceImpl();
+        resource.setValue("namespace", namespace);
+        request.setResource(resource);
+        RangerAccessResult result = accumuloPlugin.isAccessAllowed(request);
+        return result.getIsAllowed();
     }
 
     @Override
     public boolean hasCachedNamespacePermission(String user, String namespace, NamespacePermission permission) throws AccumuloSecurityException,
             NamespaceNotFoundException {
-        return zkPermissionHandler.hasCachedNamespacePermission(Base64.encodeBase64String(user.getBytes(UTF_8)), namespace, permission);
+        return hasNamespacePermission(user, namespace, permission);
     }
 
     @Override

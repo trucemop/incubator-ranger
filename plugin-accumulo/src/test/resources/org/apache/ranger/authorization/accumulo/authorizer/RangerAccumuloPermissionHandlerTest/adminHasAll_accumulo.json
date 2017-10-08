@@ -83,6 +83,46 @@
       "id": 4,
       "isEnabled": true,
       "version": 1
+    },
+    {
+      "service": "test_accumulo",
+      "name": "namespace policy",
+      "policyType": 0,
+      "description": "Policy for testing namespaces",
+      "isAuditEnabled": true,
+      "resources": {
+        "namespace": {
+          "values": [
+            "*"
+          ],
+          "isExcludes": false,
+          "isRecursive": false
+        }
+      },
+      "policyItems": [
+        {
+          "accesses": [
+            {
+              "type": "all",
+              "isAllowed": true
+            }
+          ],
+          "users": [
+            "admin"
+          ],
+          "groups": [],
+          "conditions": [],
+          "delegateAdmin": true
+        }
+      ],
+      "denyPolicyItems": [],
+      "allowExceptions": [],
+      "denyExceptions": [],
+      "dataMaskPolicyItems": [],
+      "rowFilterPolicyItems": [],
+      "id": 4,
+      "isEnabled": true,
+      "version": 1
     }
   ],
   "serviceDef": {
@@ -135,6 +175,26 @@
         "uiHint": "",
         "label": "Table",
         "description": "Table"
+      },
+      {
+        "itemId": 3,
+        "name": "namespace",
+        "type": "string",
+        "level": 10,
+        "mandatory": true,
+        "lookupSupported": true,
+        "recursiveSupported": false,
+        "excludesSupported": true,
+        "matcher": "org.apache.ranger.plugin.resourcematcher.RangerDefaultResourceMatcher",
+        "matcherOptions": {
+          "wildCard": "true",
+          "ignoreCase": "false"
+        },
+        "validationRegEx": "",
+        "validationMessage": "",
+        "uiHint": "",
+        "label": "Namespace",
+        "description": "Namespace"
       }
     ],
     "accessTypes": [
@@ -229,7 +289,7 @@
         "impliedGrants": []
       },
       {
-        "itemId": 13,
+        "itemId": 16,
         "name": "all",
         "label": "All",
         "impliedGrants": [
