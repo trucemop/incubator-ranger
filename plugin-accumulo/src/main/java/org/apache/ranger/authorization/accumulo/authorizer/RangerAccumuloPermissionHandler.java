@@ -31,11 +31,9 @@ import org.apache.accumulo.server.security.handler.Authorizor;
 import org.apache.accumulo.server.security.handler.KerberosAuthenticator;
 import org.apache.accumulo.server.security.handler.KerberosAuthorizor;
 import org.apache.accumulo.server.security.handler.PermissionHandler;
-import org.apache.accumulo.server.security.handler.ZKPermHandler;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.ranger.audit.provider.MiscUtil;
-import org.apache.ranger.authorization.hadoop.config.RangerConfiguration;
+import org.apache.ranger.plugin.audit.RangerMultiResourceAuditHandler;
 import org.apache.ranger.plugin.policyengine.RangerAccessRequestImpl;
 import org.apache.ranger.plugin.policyengine.RangerAccessResourceImpl;
 import org.apache.ranger.plugin.policyengine.RangerAccessResult;
@@ -46,54 +44,19 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
     private static final Log logger = LogFactory
             .getLog(RangerAccumuloPermissionHandler.class);
 
-    public static final String PROP_USE_PROXY_IP = "xasecure.accumulo.use_proxy_ip";
-    public static final String PROP_PROXY_IP_HEADER = "xasecure.solr.proxy_ip_header";
-    public static final String PROP_SOLR_APP_NAME = "xasecure.accumulo.app.name";
-
-    public static final String KEY_COLLECTION = "collection";
-
-    public static final String ACCESS_TYPE_CREATE = "create";
-    public static final String ACCESS_TYPE_UPDATE = "update";
-    public static final String ACCESS_TYPE_QUERY = "query";
+    public static final String RESOURCE_KEY_SYSTEM = "system";
+    public static final String RESOURCE_KEY_TABLE = "table";
+    public static final String RESOURCE_KEY_NAMESPACE = "namespace";
 
     protected static volatile RangerBasePlugin accumuloPlugin = null;
 
-    boolean useProxyIP = false;
-    String proxyIPHeader = "HTTP_X_FORWARDED_FOR";
-    String accumuloAppName = "Client";
-
-    private final ZKPermHandler zkPermissionHandler;
-
     public RangerAccumuloPermissionHandler() {
-        zkPermissionHandler = new ZKPermHandler();
         logger.info("RangerAccumuloAuthorizer()");
     }
 
     @Override
     public void initialize(String instanceId, boolean initialize) {
         logger.info("init()");
-
-        try {
-            useProxyIP = RangerConfiguration.getInstance().getBoolean(
-                    PROP_USE_PROXY_IP, useProxyIP);
-            proxyIPHeader = RangerConfiguration.getInstance().get(
-                    PROP_PROXY_IP_HEADER, proxyIPHeader);
-            // First get from the -D property
-            accumuloAppName = System.getProperty("accumulo.kerberos.jaas.appname",
-                    accumuloAppName);
-            // Override if required from Ranger properties
-            accumuloAppName = RangerConfiguration.getInstance().get(
-                    PROP_SOLR_APP_NAME, accumuloAppName);
-
-            logger.info("init(): useProxyIP=" + useProxyIP);
-            logger.info("init(): proxyIPHeader=" + proxyIPHeader);
-            logger.info("init(): accumuloAppName=" + accumuloAppName);
-            logger.info("init(): KerberosName.rules="
-                    + MiscUtil.getKerberosNamesRules());
-
-        } catch (Throwable t) {
-            logger.fatal("Error init", t);
-        }
 
         try {
             accumuloPlugin = new RangerBasePlugin("accumulo", "accumulo");
@@ -110,20 +73,29 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
 
     @Override
     public void initializeSecurity(TCredentials credentials, String rootuser) throws AccumuloSecurityException, ThriftSecurityException {
-        //zkPermissionHandler.initializeSecurity(credentials, Base64.encodeBase64String(rootuser.getBytes(UTF_8)));
     }
 
     @Override
     public boolean hasSystemPermission(String user, SystemPermission permission) throws AccumuloSecurityException {
 
+        boolean isAllowed = false;
         RangerAccessRequestImpl request = new RangerAccessRequestImpl();
+        RangerMultiResourceAuditHandler auditHandler = new RangerMultiResourceAuditHandler();
         request.setAccessType(permission.toString());
         request.setUser(user);
         RangerAccessResourceImpl resource = new RangerAccessResourceImpl();
-        resource.setValue("system", "*");
+        resource.setValue(RESOURCE_KEY_SYSTEM, "*");
         request.setResource(resource);
-        RangerAccessResult result = accumuloPlugin.isAccessAllowed(request);
-        return result.getIsAllowed();
+        RangerAccessResult result = null;
+        try {
+            result = accumuloPlugin.isAccessAllowed(request, auditHandler);
+        } finally {
+            auditHandler.flushAudit();
+        }
+        if (result != null) {
+            isAllowed = result.getIsAllowed();
+        }
+        return isAllowed;
 
     }
 
@@ -134,14 +106,24 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
 
     @Override
     public boolean hasTablePermission(String user, String table, TablePermission permission) throws AccumuloSecurityException, TableNotFoundException {
+        boolean isAllowed = false;
         RangerAccessRequestImpl request = new RangerAccessRequestImpl();
+        RangerMultiResourceAuditHandler auditHandler = new RangerMultiResourceAuditHandler();
         request.setAccessType(permission.toString());
         request.setUser(user);
         RangerAccessResourceImpl resource = new RangerAccessResourceImpl();
-        resource.setValue("table", table);
+        resource.setValue(RESOURCE_KEY_TABLE, table);
         request.setResource(resource);
-        RangerAccessResult result = accumuloPlugin.isAccessAllowed(request);
-        return result.getIsAllowed();
+        RangerAccessResult result = null;
+        try {
+            result = accumuloPlugin.isAccessAllowed(request, auditHandler);
+        } finally {
+            auditHandler.flushAudit();
+        }
+        if (result != null) {
+            isAllowed = result.getIsAllowed();
+        }
+        return isAllowed;
     }
 
     @Override
@@ -152,14 +134,24 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
     @Override
     public boolean hasNamespacePermission(String user, String namespace, NamespacePermission permission) throws AccumuloSecurityException,
             NamespaceNotFoundException {
+        boolean isAllowed = false;
         RangerAccessRequestImpl request = new RangerAccessRequestImpl();
+        RangerMultiResourceAuditHandler auditHandler = new RangerMultiResourceAuditHandler();
         request.setAccessType(permission.toString());
         request.setUser(user);
         RangerAccessResourceImpl resource = new RangerAccessResourceImpl();
-        resource.setValue("namespace", namespace);
+        resource.setValue(RESOURCE_KEY_NAMESPACE, namespace);
         request.setResource(resource);
-        RangerAccessResult result = accumuloPlugin.isAccessAllowed(request);
-        return result.getIsAllowed();
+        RangerAccessResult result = null;
+        try {
+            result = accumuloPlugin.isAccessAllowed(request, auditHandler);
+        } finally {
+            auditHandler.flushAudit();
+        }
+        if (result != null) {
+            isAllowed = result.getIsAllowed();
+        }
+        return isAllowed;
     }
 
     @Override

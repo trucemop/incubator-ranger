@@ -20,37 +20,35 @@ package org.apache.ranger.authorization.accumulo.authorizer;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import java.io.DataInputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileReader;
-import java.io.InputStream;
 import java.io.Reader;
-import java.net.URL;
 import org.apache.accumulo.core.security.NamespacePermission;
 import org.apache.accumulo.core.security.SystemPermission;
 import org.apache.accumulo.core.security.TablePermission;
-import org.apache.ranger.plugin.util.PolicyRefresher;
 import org.apache.ranger.plugin.util.ServicePolicies;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
 public class RangerAccumuloPermissionHandlerTest {
 
-    public RangerAccumuloPermissionHandlerTest() {
+    protected ServicePolicies adminHasAllPolicies;
+    protected RangerAccumuloPermissionHandler rap;
+
+    public RangerAccumuloPermissionHandlerTest() throws Exception {
+        File file = new File(getClass().getResource(getClass().getSimpleName() + "/" + "adminHasAll_accumulo.json").getPath());
+
+        Gson gson = new GsonBuilder().setDateFormat("yyyyMMdd-HH:mm:ss.SSS-Z").setPrettyPrinting().create();
+        Reader reader = new FileReader(file);
+        adminHasAllPolicies = gson.fromJson(reader, ServicePolicies.class);
+        rap = new RangerAccumuloPermissionHandler();
+        rap.initialize("accumulo", true);
     }
 
     @Test
     public void testAdminHasAllSystemPermissions() throws Exception {
 
-        File file = new File(getClass().getResource(getClass().getSimpleName() + "/" + "adminHasAll_accumulo.json").getPath());
-
-        Gson gson = new GsonBuilder().setDateFormat("yyyyMMdd-HH:mm:ss.SSS-Z").setPrettyPrinting().create();
-        Reader reader = new FileReader(file);
-        ServicePolicies policies = gson.fromJson(reader, ServicePolicies.class);
-        RangerAccumuloPermissionHandler rap = new RangerAccumuloPermissionHandler();
-        rap.initialize("accumulo", true);
-        RangerAccumuloPermissionHandler.accumuloPlugin.setPolicies(policies);
+        RangerAccumuloPermissionHandler.accumuloPlugin.setPolicies(adminHasAllPolicies);
         assertTrue(rap.hasSystemPermission("admin", SystemPermission.GRANT));
         assertTrue(rap.hasSystemPermission("admin", SystemPermission.CREATE_TABLE));
         assertTrue(rap.hasSystemPermission("admin", SystemPermission.DROP_TABLE));
@@ -68,14 +66,7 @@ public class RangerAccumuloPermissionHandlerTest {
     @Test
     public void testUserDoesNotHaveSystemPermissions() throws Exception {
 
-        File file = new File(getClass().getResource(getClass().getSimpleName() + "/" + "adminHasAll_accumulo.json").getPath());
-
-        Gson gson = new GsonBuilder().setDateFormat("yyyyMMdd-HH:mm:ss.SSS-Z").setPrettyPrinting().create();
-        Reader reader = new FileReader(file);
-        ServicePolicies policies = gson.fromJson(reader, ServicePolicies.class);
-        RangerAccumuloPermissionHandler rap = new RangerAccumuloPermissionHandler();
-        rap.initialize("accumulo", true);
-        RangerAccumuloPermissionHandler.accumuloPlugin.setPolicies(policies);
+        RangerAccumuloPermissionHandler.accumuloPlugin.setPolicies(adminHasAllPolicies);
         assertFalse(rap.hasSystemPermission("joe", SystemPermission.GRANT));
         assertFalse(rap.hasSystemPermission("joe", SystemPermission.CREATE_TABLE));
         assertFalse(rap.hasSystemPermission("joe", SystemPermission.DROP_TABLE));
@@ -92,14 +83,8 @@ public class RangerAccumuloPermissionHandlerTest {
 
     @Test
     public void testAdminHasAllTablePermission() throws Exception {
-        File file = new File(getClass().getResource(getClass().getSimpleName() + "/" + "adminHasAll_accumulo.json").getPath());
 
-        Gson gson = new GsonBuilder().setDateFormat("yyyyMMdd-HH:mm:ss.SSS-Z").setPrettyPrinting().create();
-        Reader reader = new FileReader(file);
-        ServicePolicies policies = gson.fromJson(reader, ServicePolicies.class);
-        RangerAccumuloPermissionHandler rap = new RangerAccumuloPermissionHandler();
-        rap.initialize("accumulo", true);
-        RangerAccumuloPermissionHandler.accumuloPlugin.setPolicies(policies);
+        RangerAccumuloPermissionHandler.accumuloPlugin.setPolicies(adminHasAllPolicies);
         assertTrue(rap.hasTablePermission("admin", "test", TablePermission.READ));
         assertTrue(rap.hasTablePermission("admin", "test", TablePermission.WRITE));
         assertTrue(rap.hasTablePermission("admin", "test", TablePermission.BULK_IMPORT));
@@ -110,14 +95,8 @@ public class RangerAccumuloPermissionHandlerTest {
 
     @Test
     public void testUserDoesNotHaveTablePermissions() throws Exception {
-        File file = new File(getClass().getResource(getClass().getSimpleName() + "/" + "adminHasAll_accumulo.json").getPath());
 
-        Gson gson = new GsonBuilder().setDateFormat("yyyyMMdd-HH:mm:ss.SSS-Z").setPrettyPrinting().create();
-        Reader reader = new FileReader(file);
-        ServicePolicies policies = gson.fromJson(reader, ServicePolicies.class);
-        RangerAccumuloPermissionHandler rap = new RangerAccumuloPermissionHandler();
-        rap.initialize("accumulo", true);
-        RangerAccumuloPermissionHandler.accumuloPlugin.setPolicies(policies);
+        RangerAccumuloPermissionHandler.accumuloPlugin.setPolicies(adminHasAllPolicies);
         assertFalse(rap.hasTablePermission("joe", "test", TablePermission.READ));
         assertFalse(rap.hasTablePermission("joe", "test", TablePermission.WRITE));
         assertFalse(rap.hasTablePermission("joe", "test", TablePermission.BULK_IMPORT));
@@ -128,14 +107,8 @@ public class RangerAccumuloPermissionHandlerTest {
 
     @Test
     public void testAdminHasAllNamespacePermissions() throws Exception {
-        File file = new File(getClass().getResource(getClass().getSimpleName() + "/" + "adminHasAll_accumulo.json").getPath());
 
-        Gson gson = new GsonBuilder().setDateFormat("yyyyMMdd-HH:mm:ss.SSS-Z").setPrettyPrinting().create();
-        Reader reader = new FileReader(file);
-        ServicePolicies policies = gson.fromJson(reader, ServicePolicies.class);
-        RangerAccumuloPermissionHandler rap = new RangerAccumuloPermissionHandler();
-        rap.initialize("accumulo", true);
-        RangerAccumuloPermissionHandler.accumuloPlugin.setPolicies(policies);
+        RangerAccumuloPermissionHandler.accumuloPlugin.setPolicies(adminHasAllPolicies);
         assertTrue(rap.hasNamespacePermission("admin", "testNamespace", NamespacePermission.READ));
         assertTrue(rap.hasNamespacePermission("admin", "testNamespace", NamespacePermission.WRITE));
         assertTrue(rap.hasNamespacePermission("admin", "testNamespace", NamespacePermission.ALTER_NAMESPACE));
@@ -150,14 +123,8 @@ public class RangerAccumuloPermissionHandlerTest {
 
     @Test
     public void testUserDoesNotHaveNamespacePermissions() throws Exception {
-        File file = new File(getClass().getResource(getClass().getSimpleName() + "/" + "adminHasAll_accumulo.json").getPath());
 
-        Gson gson = new GsonBuilder().setDateFormat("yyyyMMdd-HH:mm:ss.SSS-Z").setPrettyPrinting().create();
-        Reader reader = new FileReader(file);
-        ServicePolicies policies = gson.fromJson(reader, ServicePolicies.class);
-        RangerAccumuloPermissionHandler rap = new RangerAccumuloPermissionHandler();
-        rap.initialize("accumulo", true);
-        RangerAccumuloPermissionHandler.accumuloPlugin.setPolicies(policies);
+        RangerAccumuloPermissionHandler.accumuloPlugin.setPolicies(adminHasAllPolicies);
         assertFalse(rap.hasNamespacePermission("joe", "testNamespace", NamespacePermission.READ));
         assertFalse(rap.hasNamespacePermission("joe", "testNamespace", NamespacePermission.WRITE));
         assertFalse(rap.hasNamespacePermission("joe", "testNamespace", NamespacePermission.ALTER_NAMESPACE));
@@ -168,26 +135,6 @@ public class RangerAccumuloPermissionHandlerTest {
         assertFalse(rap.hasNamespacePermission("joe", "testNamespace", NamespacePermission.BULK_IMPORT));
         assertFalse(rap.hasNamespacePermission("joe", "testNamespace", NamespacePermission.DROP_NAMESPACE));
 
-    }
-
-    @Test
-    public void testCleanTablePermissions() throws Exception {
-    }
-
-    @Test
-    public void testCleanNamespacePermissions() throws Exception {
-    }
-
-    @Test
-    public void testInitUser() throws Exception {
-    }
-
-    @Test
-    public void testInitTable() throws Exception {
-    }
-
-    @Test
-    public void testCleanUser() throws Exception {
     }
 
 }
