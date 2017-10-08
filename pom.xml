@@ -109,7 +109,8 @@
         <module>ranger-examples</module>
         <module>ranger-tools</module>
         <module>plugin-atlas</module>
-  </modules>
+        <module>plugin-accumulo</module>
+    </modules>
     <properties>
         <javac.source.version>1.7</javac.source.version>
         <javac.target.version>1.7</javac.target.version>
