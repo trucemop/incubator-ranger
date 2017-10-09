@@ -18,6 +18,7 @@
  */
 package org.apache.ranger.authorization.accumulo.authorizer;
 
+import java.io.IOException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.NamespaceNotFoundException;
 import org.apache.accumulo.core.client.TableNotFoundException;
@@ -33,6 +34,7 @@ import org.apache.accumulo.server.security.handler.KerberosAuthorizor;
 import org.apache.accumulo.server.security.handler.PermissionHandler;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.security.authentication.util.KerberosName;
 import org.apache.ranger.plugin.audit.RangerMultiResourceAuditHandler;
 import org.apache.ranger.plugin.policyengine.RangerAccessRequestImpl;
 import org.apache.ranger.plugin.policyengine.RangerAccessResourceImpl;
@@ -62,7 +64,7 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
             accumuloPlugin = new RangerBasePlugin("accumulo", "accumulo");
             accumuloPlugin.init();
         } catch (Throwable t) {
-            logger.fatal("Error creating and initializing RangerBasePlugin()");
+            logger.fatal("Error creating and initializing RangerBasePlugin()", t);
         }
     }
 
@@ -82,7 +84,8 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
         RangerAccessRequestImpl request = new RangerAccessRequestImpl();
         RangerMultiResourceAuditHandler auditHandler = new RangerMultiResourceAuditHandler();
         request.setAccessType(permission.toString());
-        request.setUser(user);
+        request.setAction(permission.toString());
+        request.setUser(getShortname(user));
         RangerAccessResourceImpl resource = new RangerAccessResourceImpl();
         resource.setValue(RESOURCE_KEY_SYSTEM, "*");
         request.setResource(resource);
@@ -110,7 +113,8 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
         RangerAccessRequestImpl request = new RangerAccessRequestImpl();
         RangerMultiResourceAuditHandler auditHandler = new RangerMultiResourceAuditHandler();
         request.setAccessType(permission.toString());
-        request.setUser(user);
+        request.setAction(permission.toString());
+        request.setUser(getShortname(user));
         RangerAccessResourceImpl resource = new RangerAccessResourceImpl();
         resource.setValue(RESOURCE_KEY_TABLE, table);
         request.setResource(resource);
@@ -135,10 +139,12 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
     public boolean hasNamespacePermission(String user, String namespace, NamespacePermission permission) throws AccumuloSecurityException,
             NamespaceNotFoundException {
         boolean isAllowed = false;
+
         RangerAccessRequestImpl request = new RangerAccessRequestImpl();
         RangerMultiResourceAuditHandler auditHandler = new RangerMultiResourceAuditHandler();
         request.setAccessType(permission.toString());
-        request.setUser(user);
+        request.setAction(permission.toString());
+        request.setUser(getShortname(user));
         RangerAccessResourceImpl resource = new RangerAccessResourceImpl();
         resource.setValue(RESOURCE_KEY_NAMESPACE, namespace);
         request.setResource(resource);
@@ -172,7 +178,6 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
 
     @Override
     public void grantTablePermission(String user, String table, TablePermission permission) throws AccumuloSecurityException, TableNotFoundException {
-        throw new UnsupportedOperationException("Cannot modify table permissions when using Ranger");
     }
 
     @Override
@@ -183,7 +188,6 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
     @Override
     public void grantNamespacePermission(String user, String namespace, NamespacePermission permission) throws AccumuloSecurityException,
             NamespaceNotFoundException {
-        throw new UnsupportedOperationException("Cannot modify namespace permissions when using Ranger");
     }
 
     @Override
@@ -204,7 +208,7 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
 
     @Override
     public void initUser(String user) throws AccumuloSecurityException {
-        throw new UnsupportedOperationException("Cannot modify users when using Ranger");
+        //nothing to be done
     }
 
     @Override
@@ -214,7 +218,17 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
 
     @Override
     public void cleanUser(String user) throws AccumuloSecurityException {
-        throw new UnsupportedOperationException("Cannot modify users when using Ranger");
+        //nothing to be done
     }
 
+    protected String getShortname(String user) {
+        KerberosName name = new KerberosName(user);
+        String shortname = null;
+        try {
+            shortname = name.getShortName();
+        } catch (IOException ex) {
+            shortname = user;
+        }
+        return shortname;
+    }
 }

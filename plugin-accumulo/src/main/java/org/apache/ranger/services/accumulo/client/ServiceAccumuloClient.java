@@ -26,6 +26,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
+import org.apache.ranger.authorization.accumulo.authorizer.RangerAccumuloPermissionHandler;
 import org.apache.ranger.plugin.client.BaseClient;
 import org.apache.ranger.plugin.service.ResourceLookupContext;
 import org.apache.ranger.plugin.util.TimedEventUtil;
@@ -36,7 +37,7 @@ public class ServiceAccumuloClient {
 
     enum RESOURCE_TYPE {
 
-        TABLE, NAMESPACE
+        SYSTEM, TABLE, NAMESPACE
     }
 
     String serviceName = null;
@@ -44,8 +45,6 @@ public class ServiceAccumuloClient {
             + "policies, but you would not be able to use autocomplete for "
             + "resource names. Check server logs for more info.";
 
-    private static final String TABLE_KEY = "table";
-    private static final String NAMESPACE_KEY = "namespace";
     private static final long LOOKUP_TIMEOUT_SEC = 5;
 
     public ServiceAccumuloClient(String serviceName) {
@@ -103,6 +102,7 @@ public class ServiceAccumuloClient {
         String resource = context.getResourceName();
         Map<String, List<String>> resourceMap = context.getResources();
         List<String> resultList = null;
+        List<String> systemList = null;
         List<String> tableList = null;
         List<String> namespaceList = null;
 
@@ -116,16 +116,19 @@ public class ServiceAccumuloClient {
 
         if (userInput != null && resource != null) {
             if (resourceMap != null && !resourceMap.isEmpty()) {
-                tableList = resourceMap.get(TABLE_KEY);
-                namespaceList = resourceMap.get(NAMESPACE_KEY);
+                systemList = resourceMap.get(RangerAccumuloPermissionHandler.RESOURCE_KEY_SYSTEM);
+                tableList = resourceMap.get(RangerAccumuloPermissionHandler.RESOURCE_KEY_TABLE);
+                namespaceList = resourceMap.get(RangerAccumuloPermissionHandler.RESOURCE_KEY_NAMESPACE);
             }
             switch (resource.trim().toLowerCase()) {
-                case TABLE_KEY:
+                case RangerAccumuloPermissionHandler.RESOURCE_KEY_SYSTEM:
+                    lookupResource = RESOURCE_TYPE.SYSTEM;
+                    break;
+                case RangerAccumuloPermissionHandler.RESOURCE_KEY_TABLE:
                     lookupResource = RESOURCE_TYPE.TABLE;
                     break;
-                case NAMESPACE_KEY:
+                case RangerAccumuloPermissionHandler.RESOURCE_KEY_NAMESPACE:
                     lookupResource = RESOURCE_TYPE.NAMESPACE;
-                    ;
                     break;
                 default:
                     break;
@@ -137,6 +140,7 @@ public class ServiceAccumuloClient {
                 Callable<List<String>> callableObj = null;
                 final String userInputFinal = userInput;
 
+                final List<String> finalSystemList = systemList;
                 final List<String> finalTableList = tableList;
                 final List<String> finalNamespaceList = namespaceList;
 

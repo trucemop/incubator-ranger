@@ -137,4 +137,11 @@ public class RangerAccumuloPermissionHandlerTest {
 
     }
 
+    @Test
+    public void testAuthToLocal() throws Exception {
+
+        RangerAccumuloPermissionHandler.accumuloPlugin.setPolicies(adminHasAllPolicies);
+        System.setProperty("hadoop.security.auth_to_local", "RULE:[1:$1@$0](admin@EXAMPLE.COM)s/.*/admin/");
+        assertTrue(rap.hasNamespacePermission("admin/fqdn.stuff.com@REALM.COM", "testNamespace", NamespacePermission.READ));
+    }
 }
