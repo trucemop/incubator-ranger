@@ -26,6 +26,7 @@ import org.apache.accumulo.core.Constants;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.NamespaceNotFoundException;
 import org.apache.accumulo.core.client.TableNotFoundException;
+import org.apache.accumulo.core.client.impl.Namespaces;
 import org.apache.accumulo.core.client.impl.thrift.ThriftSecurityException;
 import org.apache.accumulo.core.security.NamespacePermission;
 import org.apache.accumulo.core.security.SystemPermission;
@@ -56,8 +57,8 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
     public static final String RESOURCE_KEY_TABLE = "table";
     public static final String RESOURCE_KEY_NAMESPACE = "namespace";
 
-    private String ZKTablePath;
-    private String ZKNamespacePath;
+    protected String ZKTablePath;
+    protected String ZKNamespacePath;
     private String ipAddress;
 
     protected static volatile RangerBasePlugin accumuloPlugin = null;
@@ -71,11 +72,15 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
         zooCache = zc;
     }
 
-    protected byte[] getTable(String tableId) {
+    protected byte[] getTableName(String tableId) {
         return zooCache.get(ZKTablePath + "/" + tableId + Constants.ZTABLE_NAME);
     }
 
-    protected byte[] getNamespace(String namespaceId) {
+    protected byte[] getTableNamespaceId(String tableId) {
+        return zooCache.get(ZKTablePath + "/" + tableId + Constants.ZTABLE_NAMESPACE);
+    }
+
+    protected byte[] getNamespaceName(String namespaceId) {
         return zooCache.get(ZKNamespacePath + "/" + namespaceId + Constants.ZNAMESPACE_NAME);
     }
 
@@ -146,20 +151,32 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
     public boolean hasTablePermission(String user, String table, TablePermission permission) throws AccumuloSecurityException, TableNotFoundException {
         boolean isAllowed = false;
         String tableName = table;
+        String namespaceName = "";
         RangerAccessRequestImpl request = new RangerAccessRequestImpl();
         RangerMultiResourceAuditHandler auditHandler = new RangerMultiResourceAuditHandler();
         request.setAccessType(permission.toString());
         request.setAction(permission.toString());
         request.setUser(getShortname(user));
         request.setRemoteIPAddress(ipAddress);
-        byte[] tableBytes = getTable(table);
+        byte[] tableBytes = getTableName(table);
 
         if (tableBytes != null) {
             tableName = new String(tableBytes, Charsets.UTF_8);
+            byte[] namespaceIdBytes = getTableNamespaceId(table);
+            if (namespaceIdBytes != null) {
+                String namespaceId = new String(namespaceIdBytes, Charsets.UTF_8);
+                if (!Namespaces.DEFAULT_NAMESPACE_ID.equals(namespaceId)) {
+                    byte[] namespaceNameBytes = getNamespaceName(namespaceId);
+                    if (namespaceNameBytes != null) {
+                        namespaceName = new String(tableBytes, Charsets.UTF_8) + ".";
+                    }
+                }
+            }
+
         }
 
         RangerAccessResourceImpl resource = new RangerAccessResourceImpl();
-        resource.setValue(RESOURCE_KEY_TABLE, tableName);
+        resource.setValue(RESOURCE_KEY_TABLE, namespaceName + tableName);
         request.setResource(resource);
 
         RangerAccessResult result = null;
@@ -195,7 +212,7 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
 
         RangerAccessResourceImpl resource = new RangerAccessResourceImpl();
 
-        byte[] namespaceBytes = getNamespace(namespace);
+        byte[] namespaceBytes = getNamespaceName(namespace);
 
         if (namespaceBytes != null) {
             namespaceName = new String(namespaceBytes, Charsets.UTF_8);

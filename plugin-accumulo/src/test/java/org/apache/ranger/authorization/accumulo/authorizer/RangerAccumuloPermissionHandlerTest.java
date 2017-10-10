@@ -23,6 +23,8 @@ import com.google.gson.GsonBuilder;
 import java.io.File;
 import java.io.FileReader;
 import java.io.Reader;
+import org.apache.accumulo.core.Constants;
+import org.apache.accumulo.core.client.impl.Namespaces;
 import org.apache.accumulo.core.conf.Property;
 import org.apache.accumulo.core.security.NamespacePermission;
 import org.apache.accumulo.core.security.SystemPermission;
@@ -39,7 +41,8 @@ import org.mockito.Matchers;
 public class RangerAccumuloPermissionHandlerTest {
 
     protected ServicePolicies adminHasAllPolicies;
-    protected RangerAccumuloPermissionHandler rap;
+    protected ServicePolicies joeHasSomePolicies;
+    protected RangerAccumuloPermissionHandler basicRap;
 
     public RangerAccumuloPermissionHandlerTest() throws Exception {
         File file = new File(getClass().getResource(getClass().getSimpleName() + "/" + "adminHasAll_accumulo.json").getPath());
@@ -47,86 +50,92 @@ public class RangerAccumuloPermissionHandlerTest {
         Gson gson = new GsonBuilder().setDateFormat("yyyyMMdd-HH:mm:ss.SSS-Z").setPrettyPrinting().create();
         Reader reader = new FileReader(file);
         adminHasAllPolicies = gson.fromJson(reader, ServicePolicies.class);
-        System.setProperty(Property.INSTANCE_ZK_TIMEOUT.getKey(), "0");
+
+        file = new File(getClass().getResource(getClass().getSimpleName() + "/" + "joeHasSome_accumulo.json").getPath());
+
+        gson = new GsonBuilder().setDateFormat("yyyyMMdd-HH:mm:ss.SSS-Z").setPrettyPrinting().create();
+        reader = new FileReader(file);
+        joeHasSomePolicies = gson.fromJson(reader, ServicePolicies.class);
+
         ZooCache mockZc = (ZooCache) mock(ZooCache.class);
         when(mockZc.get(Matchers.anyString())).thenReturn(null);
-        rap = new RangerAccumuloPermissionHandler(mockZc);
-        rap.initialize("accumulo", true);
+        basicRap = new RangerAccumuloPermissionHandler(mockZc);
+        basicRap.initialize("accumulo", true);
     }
 
     @Test
     public void testAdminHasAllSystemPermissions() throws Exception {
 
         RangerAccumuloPermissionHandler.accumuloPlugin.setPolicies(adminHasAllPolicies);
-        assertTrue(rap.hasSystemPermission("admin", SystemPermission.GRANT));
-        assertTrue(rap.hasSystemPermission("admin", SystemPermission.CREATE_TABLE));
-        assertTrue(rap.hasSystemPermission("admin", SystemPermission.DROP_TABLE));
-        assertTrue(rap.hasSystemPermission("admin", SystemPermission.ALTER_TABLE));
-        assertTrue(rap.hasSystemPermission("admin", SystemPermission.CREATE_USER));
-        assertTrue(rap.hasSystemPermission("admin", SystemPermission.DROP_USER));
-        assertTrue(rap.hasSystemPermission("admin", SystemPermission.ALTER_USER));
-        assertTrue(rap.hasSystemPermission("admin", SystemPermission.SYSTEM));
-        assertTrue(rap.hasSystemPermission("admin", SystemPermission.CREATE_NAMESPACE));
-        assertTrue(rap.hasSystemPermission("admin", SystemPermission.DROP_NAMESPACE));
-        assertTrue(rap.hasSystemPermission("admin", SystemPermission.ALTER_NAMESPACE));
-        assertTrue(rap.hasSystemPermission("admin", SystemPermission.OBTAIN_DELEGATION_TOKEN));
+        assertTrue(basicRap.hasSystemPermission("admin", SystemPermission.GRANT));
+        assertTrue(basicRap.hasSystemPermission("admin", SystemPermission.CREATE_TABLE));
+        assertTrue(basicRap.hasSystemPermission("admin", SystemPermission.DROP_TABLE));
+        assertTrue(basicRap.hasSystemPermission("admin", SystemPermission.ALTER_TABLE));
+        assertTrue(basicRap.hasSystemPermission("admin", SystemPermission.CREATE_USER));
+        assertTrue(basicRap.hasSystemPermission("admin", SystemPermission.DROP_USER));
+        assertTrue(basicRap.hasSystemPermission("admin", SystemPermission.ALTER_USER));
+        assertTrue(basicRap.hasSystemPermission("admin", SystemPermission.SYSTEM));
+        assertTrue(basicRap.hasSystemPermission("admin", SystemPermission.CREATE_NAMESPACE));
+        assertTrue(basicRap.hasSystemPermission("admin", SystemPermission.DROP_NAMESPACE));
+        assertTrue(basicRap.hasSystemPermission("admin", SystemPermission.ALTER_NAMESPACE));
+        assertTrue(basicRap.hasSystemPermission("admin", SystemPermission.OBTAIN_DELEGATION_TOKEN));
     }
 
     @Test
     public void testUserDoesNotHaveSystemPermissions() throws Exception {
 
         RangerAccumuloPermissionHandler.accumuloPlugin.setPolicies(adminHasAllPolicies);
-        assertFalse(rap.hasSystemPermission("joe", SystemPermission.GRANT));
-        assertFalse(rap.hasSystemPermission("joe", SystemPermission.CREATE_TABLE));
-        assertFalse(rap.hasSystemPermission("joe", SystemPermission.DROP_TABLE));
-        assertFalse(rap.hasSystemPermission("joe", SystemPermission.ALTER_TABLE));
-        assertFalse(rap.hasSystemPermission("joe", SystemPermission.CREATE_USER));
-        assertFalse(rap.hasSystemPermission("joe", SystemPermission.DROP_USER));
-        assertFalse(rap.hasSystemPermission("joe", SystemPermission.ALTER_USER));
-        assertFalse(rap.hasSystemPermission("joe", SystemPermission.SYSTEM));
-        assertFalse(rap.hasSystemPermission("joe", SystemPermission.CREATE_NAMESPACE));
-        assertFalse(rap.hasSystemPermission("joe", SystemPermission.DROP_NAMESPACE));
-        assertFalse(rap.hasSystemPermission("joe", SystemPermission.ALTER_NAMESPACE));
-        assertFalse(rap.hasSystemPermission("joe", SystemPermission.OBTAIN_DELEGATION_TOKEN));
+        assertFalse(basicRap.hasSystemPermission("joe", SystemPermission.GRANT));
+        assertFalse(basicRap.hasSystemPermission("joe", SystemPermission.CREATE_TABLE));
+        assertFalse(basicRap.hasSystemPermission("joe", SystemPermission.DROP_TABLE));
+        assertFalse(basicRap.hasSystemPermission("joe", SystemPermission.ALTER_TABLE));
+        assertFalse(basicRap.hasSystemPermission("joe", SystemPermission.CREATE_USER));
+        assertFalse(basicRap.hasSystemPermission("joe", SystemPermission.DROP_USER));
+        assertFalse(basicRap.hasSystemPermission("joe", SystemPermission.ALTER_USER));
+        assertFalse(basicRap.hasSystemPermission("joe", SystemPermission.SYSTEM));
+        assertFalse(basicRap.hasSystemPermission("joe", SystemPermission.CREATE_NAMESPACE));
+        assertFalse(basicRap.hasSystemPermission("joe", SystemPermission.DROP_NAMESPACE));
+        assertFalse(basicRap.hasSystemPermission("joe", SystemPermission.ALTER_NAMESPACE));
+        assertFalse(basicRap.hasSystemPermission("joe", SystemPermission.OBTAIN_DELEGATION_TOKEN));
     }
 
     @Test
     public void testAdminHasAllTablePermission() throws Exception {
 
         RangerAccumuloPermissionHandler.accumuloPlugin.setPolicies(adminHasAllPolicies);
-        assertTrue(rap.hasTablePermission("admin", "test", TablePermission.READ));
-        assertTrue(rap.hasTablePermission("admin", "test", TablePermission.WRITE));
-        assertTrue(rap.hasTablePermission("admin", "test", TablePermission.BULK_IMPORT));
-        assertTrue(rap.hasTablePermission("admin", "test", TablePermission.ALTER_TABLE));
-        assertTrue(rap.hasTablePermission("admin", "test", TablePermission.GRANT));
-        assertTrue(rap.hasTablePermission("admin", "test", TablePermission.DROP_TABLE));
+        assertTrue(basicRap.hasTablePermission("admin", "test", TablePermission.READ));
+        assertTrue(basicRap.hasTablePermission("admin", "test", TablePermission.WRITE));
+        assertTrue(basicRap.hasTablePermission("admin", "test", TablePermission.BULK_IMPORT));
+        assertTrue(basicRap.hasTablePermission("admin", "test", TablePermission.ALTER_TABLE));
+        assertTrue(basicRap.hasTablePermission("admin", "test", TablePermission.GRANT));
+        assertTrue(basicRap.hasTablePermission("admin", "test", TablePermission.DROP_TABLE));
     }
 
     @Test
     public void testUserDoesNotHaveTablePermissions() throws Exception {
 
         RangerAccumuloPermissionHandler.accumuloPlugin.setPolicies(adminHasAllPolicies);
-        assertFalse(rap.hasTablePermission("joe", "test", TablePermission.READ));
-        assertFalse(rap.hasTablePermission("joe", "test", TablePermission.WRITE));
-        assertFalse(rap.hasTablePermission("joe", "test", TablePermission.BULK_IMPORT));
-        assertFalse(rap.hasTablePermission("joe", "test", TablePermission.ALTER_TABLE));
-        assertFalse(rap.hasTablePermission("joe", "test", TablePermission.GRANT));
-        assertFalse(rap.hasTablePermission("joe", "test", TablePermission.DROP_TABLE));
+        assertFalse(basicRap.hasTablePermission("joe", "test", TablePermission.READ));
+        assertFalse(basicRap.hasTablePermission("joe", "test", TablePermission.WRITE));
+        assertFalse(basicRap.hasTablePermission("joe", "test", TablePermission.BULK_IMPORT));
+        assertFalse(basicRap.hasTablePermission("joe", "test", TablePermission.ALTER_TABLE));
+        assertFalse(basicRap.hasTablePermission("joe", "test", TablePermission.GRANT));
+        assertFalse(basicRap.hasTablePermission("joe", "test", TablePermission.DROP_TABLE));
     }
 
     @Test
     public void testAdminHasAllNamespacePermissions() throws Exception {
 
         RangerAccumuloPermissionHandler.accumuloPlugin.setPolicies(adminHasAllPolicies);
-        assertTrue(rap.hasNamespacePermission("admin", "testNamespace", NamespacePermission.READ));
-        assertTrue(rap.hasNamespacePermission("admin", "testNamespace", NamespacePermission.WRITE));
-        assertTrue(rap.hasNamespacePermission("admin", "testNamespace", NamespacePermission.ALTER_NAMESPACE));
-        assertTrue(rap.hasNamespacePermission("admin", "testNamespace", NamespacePermission.GRANT));
-        assertTrue(rap.hasNamespacePermission("admin", "testNamespace", NamespacePermission.ALTER_TABLE));
-        assertTrue(rap.hasNamespacePermission("admin", "testNamespace", NamespacePermission.CREATE_TABLE));
-        assertTrue(rap.hasNamespacePermission("admin", "testNamespace", NamespacePermission.DROP_TABLE));
-        assertTrue(rap.hasNamespacePermission("admin", "testNamespace", NamespacePermission.BULK_IMPORT));
-        assertTrue(rap.hasNamespacePermission("admin", "testNamespace", NamespacePermission.DROP_NAMESPACE));
+        assertTrue(basicRap.hasNamespacePermission("admin", "testNamespace", NamespacePermission.READ));
+        assertTrue(basicRap.hasNamespacePermission("admin", "testNamespace", NamespacePermission.WRITE));
+        assertTrue(basicRap.hasNamespacePermission("admin", "testNamespace", NamespacePermission.ALTER_NAMESPACE));
+        assertTrue(basicRap.hasNamespacePermission("admin", "testNamespace", NamespacePermission.GRANT));
+        assertTrue(basicRap.hasNamespacePermission("admin", "testNamespace", NamespacePermission.ALTER_TABLE));
+        assertTrue(basicRap.hasNamespacePermission("admin", "testNamespace", NamespacePermission.CREATE_TABLE));
+        assertTrue(basicRap.hasNamespacePermission("admin", "testNamespace", NamespacePermission.DROP_TABLE));
+        assertTrue(basicRap.hasNamespacePermission("admin", "testNamespace", NamespacePermission.BULK_IMPORT));
+        assertTrue(basicRap.hasNamespacePermission("admin", "testNamespace", NamespacePermission.DROP_NAMESPACE));
 
     }
 
@@ -134,15 +143,44 @@ public class RangerAccumuloPermissionHandlerTest {
     public void testUserDoesNotHaveNamespacePermissions() throws Exception {
 
         RangerAccumuloPermissionHandler.accumuloPlugin.setPolicies(adminHasAllPolicies);
-        assertFalse(rap.hasNamespacePermission("joe", "testNamespace", NamespacePermission.READ));
-        assertFalse(rap.hasNamespacePermission("joe", "testNamespace", NamespacePermission.WRITE));
-        assertFalse(rap.hasNamespacePermission("joe", "testNamespace", NamespacePermission.ALTER_NAMESPACE));
-        assertFalse(rap.hasNamespacePermission("joe", "testNamespace", NamespacePermission.GRANT));
-        assertFalse(rap.hasNamespacePermission("joe", "testNamespace", NamespacePermission.ALTER_TABLE));
-        assertFalse(rap.hasNamespacePermission("joe", "testNamespace", NamespacePermission.CREATE_TABLE));
-        assertFalse(rap.hasNamespacePermission("joe", "testNamespace", NamespacePermission.DROP_TABLE));
-        assertFalse(rap.hasNamespacePermission("joe", "testNamespace", NamespacePermission.BULK_IMPORT));
-        assertFalse(rap.hasNamespacePermission("joe", "testNamespace", NamespacePermission.DROP_NAMESPACE));
+        assertFalse(basicRap.hasNamespacePermission("joe", "testNamespace", NamespacePermission.READ));
+        assertFalse(basicRap.hasNamespacePermission("joe", "testNamespace", NamespacePermission.WRITE));
+        assertFalse(basicRap.hasNamespacePermission("joe", "testNamespace", NamespacePermission.ALTER_NAMESPACE));
+        assertFalse(basicRap.hasNamespacePermission("joe", "testNamespace", NamespacePermission.GRANT));
+        assertFalse(basicRap.hasNamespacePermission("joe", "testNamespace", NamespacePermission.ALTER_TABLE));
+        assertFalse(basicRap.hasNamespacePermission("joe", "testNamespace", NamespacePermission.CREATE_TABLE));
+        assertFalse(basicRap.hasNamespacePermission("joe", "testNamespace", NamespacePermission.DROP_TABLE));
+        assertFalse(basicRap.hasNamespacePermission("joe", "testNamespace", NamespacePermission.BULK_IMPORT));
+        assertFalse(basicRap.hasNamespacePermission("joe", "testNamespace", NamespacePermission.DROP_NAMESPACE));
+
+    }
+
+    @Test
+    public void testTableAndNamespacePermissions() throws Exception {
+
+        String instanceId = "instanceId";
+        String tableId1 = "3";
+        String tableId2 = "4";
+        String namespaceId = "r";
+        String namespaceName = "foo";
+        String tableName = "bar";
+
+        ZooCache mockZc = (ZooCache) mock(ZooCache.class);
+
+        basicRap = new RangerAccumuloPermissionHandler(mockZc);
+
+        basicRap.initialize(instanceId, true);
+
+        when(mockZc.get(basicRap.ZKTablePath + "/" + tableId1 + Constants.ZTABLE_NAME)).thenReturn(tableName.getBytes());
+        when(mockZc.get(basicRap.ZKTablePath + "/" + tableId1 + Constants.ZTABLE_NAMESPACE)).thenReturn(Namespaces.DEFAULT_NAMESPACE_ID.getBytes());
+        when(mockZc.get(basicRap.ZKTablePath + "/" + tableId2 + Constants.ZTABLE_NAME)).thenReturn(tableName.getBytes());
+        when(mockZc.get(basicRap.ZKTablePath + "/" + tableId2 + Constants.ZTABLE_NAMESPACE)).thenReturn(namespaceId.getBytes());
+        when(mockZc.get(basicRap.ZKNamespacePath + "/" + namespaceId + Constants.ZNAMESPACE_NAME)).thenReturn(namespaceName.getBytes());
+
+        RangerAccumuloPermissionHandler.accumuloPlugin.setPolicies(joeHasSomePolicies);
+        assertTrue(basicRap.hasTablePermission("joe", tableId1, TablePermission.READ));
+
+        assertFalse(basicRap.hasTablePermission("joe", tableId2, TablePermission.READ));
 
     }
 
@@ -151,7 +189,7 @@ public class RangerAccumuloPermissionHandlerTest {
 
         RangerAccumuloPermissionHandler.accumuloPlugin.setPolicies(adminHasAllPolicies);
         System.setProperty("hadoop.security.auth_to_local", "RULE:[1:$1@$0](admin@EXAMPLE.COM)s/.*/admin/");
-        assertTrue(rap.hasNamespacePermission("admin/fqdn.stuff.com@REALM.COM", "testNamespace", NamespacePermission.READ));
+        assertTrue(basicRap.hasNamespacePermission("admin/fqdn.stuff.com@REALM.COM", "testNamespace", NamespacePermission.READ));
     }
 
 }
