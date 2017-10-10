@@ -102,7 +102,6 @@ public class ServiceAccumuloClient {
         String resource = context.getResourceName();
         Map<String, List<String>> resourceMap = context.getResources();
         List<String> resultList = null;
-        List<String> systemList = null;
         List<String> tableList = null;
         List<String> namespaceList = null;
 
@@ -116,7 +115,6 @@ public class ServiceAccumuloClient {
 
         if (userInput != null && resource != null) {
             if (resourceMap != null && !resourceMap.isEmpty()) {
-                systemList = resourceMap.get(RangerAccumuloPermissionHandler.RESOURCE_KEY_SYSTEM);
                 tableList = resourceMap.get(RangerAccumuloPermissionHandler.RESOURCE_KEY_TABLE);
                 namespaceList = resourceMap.get(RangerAccumuloPermissionHandler.RESOURCE_KEY_NAMESPACE);
             }
@@ -140,7 +138,6 @@ public class ServiceAccumuloClient {
                 Callable<List<String>> callableObj = null;
                 final String userInputFinal = userInput;
 
-                final List<String> finalSystemList = systemList;
                 final List<String> finalTableList = tableList;
                 final List<String> finalNamespaceList = namespaceList;
 

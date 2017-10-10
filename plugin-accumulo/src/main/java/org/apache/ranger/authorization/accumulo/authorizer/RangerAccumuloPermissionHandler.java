@@ -18,7 +18,11 @@
  */
 package org.apache.ranger.authorization.accumulo.authorizer;
 
+import com.google.common.base.Charsets;
 import java.io.IOException;
+import java.net.Inet4Address;
+import java.net.UnknownHostException;
+import org.apache.accumulo.core.Constants;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.NamespaceNotFoundException;
 import org.apache.accumulo.core.client.TableNotFoundException;
@@ -32,6 +36,7 @@ import org.apache.accumulo.server.security.handler.Authorizor;
 import org.apache.accumulo.server.security.handler.KerberosAuthenticator;
 import org.apache.accumulo.server.security.handler.KerberosAuthorizor;
 import org.apache.accumulo.server.security.handler.PermissionHandler;
+import org.apache.accumulo.server.zookeeper.ZooCache;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.security.authentication.util.KerberosName;
@@ -45,23 +50,52 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
 
     private static final Log logger = LogFactory
             .getLog(RangerAccumuloPermissionHandler.class);
+    protected final ZooCache zooCache;
 
     public static final String RESOURCE_KEY_SYSTEM = "system";
     public static final String RESOURCE_KEY_TABLE = "table";
     public static final String RESOURCE_KEY_NAMESPACE = "namespace";
 
+    private String ZKTablePath;
+    private String ZKNamespacePath;
+    private String ipAddress;
+
     protected static volatile RangerBasePlugin accumuloPlugin = null;
 
     public RangerAccumuloPermissionHandler() {
         logger.info("RangerAccumuloAuthorizer()");
+        zooCache = new ZooCache();
+    }
+
+    protected RangerAccumuloPermissionHandler(ZooCache zc) {
+        zooCache = zc;
+    }
+
+    protected byte[] getTable(String tableId) {
+        return zooCache.get(ZKTablePath + "/" + tableId + Constants.ZTABLE_NAME);
+    }
+
+    protected byte[] getNamespace(String namespaceId) {
+        return zooCache.get(ZKNamespacePath + "/" + namespaceId + Constants.ZNAMESPACE_NAME);
     }
 
     @Override
     public void initialize(String instanceId, boolean initialize) {
         logger.info("init()");
-
+        ZKTablePath = Constants.ZROOT + "/" + instanceId + Constants.ZTABLES;
+        ZKNamespacePath = Constants.ZROOT + "/" + instanceId + Constants.ZNAMESPACES;
+        String appType = System.getProperty("app");
         try {
-            accumuloPlugin = new RangerBasePlugin("accumulo", "accumulo");
+            ipAddress = Inet4Address.getLocalHost().getHostAddress();
+        } catch (UnknownHostException ex) {
+        }
+        if (appType == null) {
+            appType = "accumulo";
+        }
+        logger.info("AppType: " + appType);
+        try {
+
+            accumuloPlugin = new RangerBasePlugin("accumulo", appType);
             accumuloPlugin.init();
         } catch (Throwable t) {
             logger.fatal("Error creating and initializing RangerBasePlugin()", t);
@@ -86,8 +120,9 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
         request.setAccessType(permission.toString());
         request.setAction(permission.toString());
         request.setUser(getShortname(user));
+        request.setRemoteIPAddress(ipAddress);
         RangerAccessResourceImpl resource = new RangerAccessResourceImpl();
-        resource.setValue(RESOURCE_KEY_SYSTEM, "*");
+        resource.setValue(RESOURCE_KEY_SYSTEM, RESOURCE_KEY_SYSTEM);
         request.setResource(resource);
         RangerAccessResult result = null;
         try {
@@ -110,14 +145,23 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
     @Override
     public boolean hasTablePermission(String user, String table, TablePermission permission) throws AccumuloSecurityException, TableNotFoundException {
         boolean isAllowed = false;
+        String tableName = table;
         RangerAccessRequestImpl request = new RangerAccessRequestImpl();
         RangerMultiResourceAuditHandler auditHandler = new RangerMultiResourceAuditHandler();
         request.setAccessType(permission.toString());
         request.setAction(permission.toString());
         request.setUser(getShortname(user));
+        request.setRemoteIPAddress(ipAddress);
+        byte[] tableBytes = getTable(table);
+
+        if (tableBytes != null) {
+            tableName = new String(tableBytes, Charsets.UTF_8);
+        }
+
         RangerAccessResourceImpl resource = new RangerAccessResourceImpl();
-        resource.setValue(RESOURCE_KEY_TABLE, table);
+        resource.setValue(RESOURCE_KEY_TABLE, tableName);
         request.setResource(resource);
+
         RangerAccessResult result = null;
         try {
             result = accumuloPlugin.isAccessAllowed(request, auditHandler);
@@ -140,13 +184,24 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
             NamespaceNotFoundException {
         boolean isAllowed = false;
 
+        String namespaceName = namespace;
+
         RangerAccessRequestImpl request = new RangerAccessRequestImpl();
         RangerMultiResourceAuditHandler auditHandler = new RangerMultiResourceAuditHandler();
         request.setAccessType(permission.toString());
         request.setAction(permission.toString());
         request.setUser(getShortname(user));
+        request.setRemoteIPAddress(ipAddress);
+
         RangerAccessResourceImpl resource = new RangerAccessResourceImpl();
-        resource.setValue(RESOURCE_KEY_NAMESPACE, namespace);
+
+        byte[] namespaceBytes = getNamespace(namespace);
+
+        if (namespaceBytes != null) {
+            namespaceName = new String(namespaceBytes, Charsets.UTF_8);
+        }
+
+        resource.setValue(RESOURCE_KEY_NAMESPACE, namespaceName);
         request.setResource(resource);
         RangerAccessResult result = null;
         try {
@@ -198,12 +253,10 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
 
     @Override
     public void cleanTablePermissions(String table) throws AccumuloSecurityException, TableNotFoundException {
-        throw new UnsupportedOperationException("Cannot modify table permissions when using Ranger");
     }
 
     @Override
     public void cleanNamespacePermissions(String namespace) throws AccumuloSecurityException, NamespaceNotFoundException {
-        throw new UnsupportedOperationException("Cannot modify namespace permissions when using Ranger");
     }
 
     @Override

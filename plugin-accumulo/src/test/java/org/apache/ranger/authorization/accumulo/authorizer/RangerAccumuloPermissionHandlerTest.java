@@ -23,12 +23,18 @@ import com.google.gson.GsonBuilder;
 import java.io.File;
 import java.io.FileReader;
 import java.io.Reader;
+import org.apache.accumulo.core.conf.Property;
 import org.apache.accumulo.core.security.NamespacePermission;
 import org.apache.accumulo.core.security.SystemPermission;
 import org.apache.accumulo.core.security.TablePermission;
+import org.apache.accumulo.server.zookeeper.ZooCache;
 import org.apache.ranger.plugin.util.ServicePolicies;
 import org.junit.Test;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import static org.junit.Assert.*;
+import org.mockito.Matchers;
 
 public class RangerAccumuloPermissionHandlerTest {
 
@@ -41,7 +47,10 @@ public class RangerAccumuloPermissionHandlerTest {
         Gson gson = new GsonBuilder().setDateFormat("yyyyMMdd-HH:mm:ss.SSS-Z").setPrettyPrinting().create();
         Reader reader = new FileReader(file);
         adminHasAllPolicies = gson.fromJson(reader, ServicePolicies.class);
-        rap = new RangerAccumuloPermissionHandler();
+        System.setProperty(Property.INSTANCE_ZK_TIMEOUT.getKey(), "0");
+        ZooCache mockZc = (ZooCache) mock(ZooCache.class);
+        when(mockZc.get(Matchers.anyString())).thenReturn(null);
+        rap = new RangerAccumuloPermissionHandler(mockZc);
         rap.initialize("accumulo", true);
     }
 
@@ -144,4 +153,5 @@ public class RangerAccumuloPermissionHandlerTest {
         System.setProperty("hadoop.security.auth_to_local", "RULE:[1:$1@$0](admin@EXAMPLE.COM)s/.*/admin/");
         assertTrue(rap.hasNamespacePermission("admin/fqdn.stuff.com@REALM.COM", "testNamespace", NamespacePermission.READ));
     }
+
 }
