@@ -45,7 +45,7 @@ import org.apache.ranger.plugin.audit.RangerMultiResourceAuditHandler;
 import org.apache.ranger.plugin.policyengine.RangerAccessRequestImpl;
 import org.apache.ranger.plugin.policyengine.RangerAccessResourceImpl;
 import org.apache.ranger.plugin.policyengine.RangerAccessResult;
-import org.apache.ranger.plugin.service.RangerBasePlugin;
+import org.apache.ranger.services.accumulo.RangerAccumuloPlugin;
 
 public class RangerAccumuloPermissionHandler implements PermissionHandler {
 
@@ -61,7 +61,7 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
     protected String ZKNamespacePath;
     private String ipAddress;
 
-    protected static volatile RangerBasePlugin accumuloPlugin = null;
+    protected static volatile RangerAccumuloPlugin accumuloPlugin = null;
 
     public RangerAccumuloPermissionHandler() {
         logger.info("RangerAccumuloAuthorizer()");
@@ -100,7 +100,7 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
         logger.info("AppType: " + appType);
         try {
 
-            accumuloPlugin = new RangerBasePlugin("accumulo", appType);
+            accumuloPlugin = new RangerAccumuloPlugin("accumulo", appType);
             accumuloPlugin.init();
         } catch (Throwable t) {
             logger.fatal("Error creating and initializing RangerBasePlugin()", t);

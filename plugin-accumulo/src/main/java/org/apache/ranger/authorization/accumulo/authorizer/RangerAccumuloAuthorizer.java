@@ -25,11 +25,12 @@ import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.security.Authorizations;
-import org.apache.accumulo.core.security.SystemPermission;
 import org.apache.accumulo.core.security.thrift.TCredentials;
 import org.apache.accumulo.server.security.handler.Authenticator;
 import org.apache.accumulo.server.security.handler.KerberosAuthenticator;
@@ -38,22 +39,20 @@ import org.apache.accumulo.server.security.handler.PermissionHandler;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.security.authentication.util.KerberosName;
-import static org.apache.ranger.authorization.accumulo.authorizer.RangerAccumuloPermissionHandler.RESOURCE_KEY_SYSTEM;
-import static org.apache.ranger.authorization.accumulo.authorizer.RangerAccumuloPermissionHandler.accumuloPlugin;
 import org.apache.ranger.plugin.audit.RangerMultiResourceAuditHandler;
-import org.apache.ranger.plugin.model.RangerServiceDef;
+import org.apache.ranger.plugin.model.RangerPolicy;
 import org.apache.ranger.plugin.policyengine.RangerAccessRequest;
 import org.apache.ranger.plugin.policyengine.RangerAccessRequestImpl;
 import org.apache.ranger.plugin.policyengine.RangerAccessResourceImpl;
 import org.apache.ranger.plugin.policyengine.RangerAccessResult;
-import org.apache.ranger.plugin.service.RangerBasePlugin;
+import org.apache.ranger.services.accumulo.RangerAccumuloPlugin;
 
 public class RangerAccumuloAuthorizer extends KerberosAuthorizor {
 
     private static final Log logger = LogFactory
             .getLog(RangerAccumuloAuthorizer.class);
     private String ipAddress;
-    protected static volatile RangerBasePlugin accumuloPlugin = null;
+    protected static volatile RangerAccumuloPlugin accumuloPlugin = null;
 
     public static final String RESOURCE_KEY_AUTHORIZATION = "authorization";
 
@@ -76,7 +75,7 @@ public class RangerAccumuloAuthorizer extends KerberosAuthorizor {
         logger.info("AppType: " + appType);
         try {
 
-            accumuloPlugin = new RangerBasePlugin("accumulo", appType);
+            accumuloPlugin = new RangerAccumuloPlugin("accumulo", appType);
             accumuloPlugin.init();
         } catch (Throwable t) {
             logger.fatal("Error creating and initializing RangerBasePlugin()", t);
@@ -85,12 +84,29 @@ public class RangerAccumuloAuthorizer extends KerberosAuthorizor {
 
     @Override
     public Authorizations getCachedUserAuthorizations(String user) {
+        Authorizations authorizations = Authorizations.EMPTY;
+        List<byte[]> authorizationList = new ArrayList<>();
+        List<RangerPolicy> policyList = accumuloPlugin.getPolicyEngine().getAllowedPolicies(user, Collections.EMPTY_SET, ACCESS_TYPE);
 
-//        byte[] authsBytes = zooCache.get(ZKUserPath + "/" + user + ZKUserAuths);
-//        if (authsBytes != null) {
-//            return ZKSecurityTool.convertAuthorizations(authsBytes);
-//        }
-        return Authorizations.EMPTY;
+        for (RangerPolicy policy : policyList) {
+            for (RangerPolicy.RangerPolicyItem policyItem : policy.getPolicyItems()) {
+                if (policyItem.getUsers().contains(user)) {
+                    for (Map.Entry<String, RangerPolicy.RangerPolicyResource> resource : policy.getResources().entrySet()) {
+                        if (resource.getKey().equals(RESOURCE_KEY_AUTHORIZATION)) {
+                            for (String value : resource.getValue().getValues()) {
+                                authorizationList.add(value.getBytes());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (authorizationList.size() > 0) {
+            authorizations = new Authorizations(authorizationList);
+        }
+
+        return authorizations;
     }
 
     @Override

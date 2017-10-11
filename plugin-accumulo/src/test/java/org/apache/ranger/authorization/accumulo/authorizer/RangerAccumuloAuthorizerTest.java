@@ -28,6 +28,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
+import org.apache.accumulo.core.security.Authorizations;
 import org.apache.ranger.plugin.util.ServicePolicies;
 import org.junit.Test;
 import static org.junit.Assert.*;
@@ -72,6 +73,15 @@ public class RangerAccumuloAuthorizerTest {
         authList.add(ByteBuffer.wrap("what".getBytes()));
         assertTrue(basicRaa.isValidAuthorizations("joe", authList));
         assertFalse(basicRaa.isValidAuthorizations("frank", authList));
+    }
+
+    @Test
+    public void testGetCachedUserAuthorizations() {
+        Authorizations authzs = new Authorizations("foo", "bar", "what");
+        RangerAccumuloAuthorizer.accumuloPlugin.setPolicies(authorizations);
+        assertEquals("Should be equal", authzs, basicRaa.getCachedUserAuthorizations("joe"));
+        authzs = new Authorizations("foo");
+        assertEquals("Should be equal", authzs, basicRaa.getCachedUserAuthorizations("frank"));
     }
 
 }

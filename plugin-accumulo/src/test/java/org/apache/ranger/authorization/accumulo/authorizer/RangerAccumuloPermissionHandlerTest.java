@@ -25,7 +25,6 @@ import java.io.FileReader;
 import java.io.Reader;
 import org.apache.accumulo.core.Constants;
 import org.apache.accumulo.core.client.impl.Namespaces;
-import org.apache.accumulo.core.conf.Property;
 import org.apache.accumulo.core.security.NamespacePermission;
 import org.apache.accumulo.core.security.SystemPermission;
 import org.apache.accumulo.core.security.TablePermission;
