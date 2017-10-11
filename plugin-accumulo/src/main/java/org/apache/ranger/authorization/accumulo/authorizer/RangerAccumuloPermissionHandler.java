@@ -168,7 +168,7 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
                 if (!Namespaces.DEFAULT_NAMESPACE_ID.equals(namespaceId)) {
                     byte[] namespaceNameBytes = getNamespaceName(namespaceId);
                     if (namespaceNameBytes != null) {
-                        namespaceName = new String(tableBytes, Charsets.UTF_8) + ".";
+                        namespaceName = new String(namespaceNameBytes, Charsets.UTF_8) + ".";
                     }
                 }
             }

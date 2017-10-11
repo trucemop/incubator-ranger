@@ -18,15 +18,148 @@
  */
 package org.apache.ranger.authorization.accumulo.authorizer;
 
+import com.google.common.base.Charsets;
+import java.io.IOException;
+import java.net.Inet4Address;
+import java.net.UnknownHostException;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+
+import org.apache.accumulo.core.client.AccumuloSecurityException;
+import org.apache.accumulo.core.security.Authorizations;
+import org.apache.accumulo.core.security.SystemPermission;
+import org.apache.accumulo.core.security.thrift.TCredentials;
 import org.apache.accumulo.server.security.handler.Authenticator;
 import org.apache.accumulo.server.security.handler.KerberosAuthenticator;
 import org.apache.accumulo.server.security.handler.KerberosAuthorizor;
 import org.apache.accumulo.server.security.handler.PermissionHandler;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.security.authentication.util.KerberosName;
+import static org.apache.ranger.authorization.accumulo.authorizer.RangerAccumuloPermissionHandler.RESOURCE_KEY_SYSTEM;
+import static org.apache.ranger.authorization.accumulo.authorizer.RangerAccumuloPermissionHandler.accumuloPlugin;
+import org.apache.ranger.plugin.audit.RangerMultiResourceAuditHandler;
+import org.apache.ranger.plugin.model.RangerServiceDef;
+import org.apache.ranger.plugin.policyengine.RangerAccessRequest;
+import org.apache.ranger.plugin.policyengine.RangerAccessRequestImpl;
+import org.apache.ranger.plugin.policyengine.RangerAccessResourceImpl;
+import org.apache.ranger.plugin.policyengine.RangerAccessResult;
+import org.apache.ranger.plugin.service.RangerBasePlugin;
 
 public class RangerAccumuloAuthorizer extends KerberosAuthorizor {
+
+    private static final Log logger = LogFactory
+            .getLog(RangerAccumuloAuthorizer.class);
+    private String ipAddress;
+    protected static volatile RangerBasePlugin accumuloPlugin = null;
+
+    public static final String RESOURCE_KEY_AUTHORIZATION = "authorization";
+
+    public static final String ACCESS_TYPE = "AUTH";
+
+    public RangerAccumuloAuthorizer() {
+
+    }
+
+    @Override
+    public void initialize(String instanceId, boolean initialize) {
+        String appType = System.getProperty("app");
+        try {
+            ipAddress = Inet4Address.getLocalHost().getHostAddress();
+        } catch (UnknownHostException ex) {
+        }
+        if (appType == null) {
+            appType = "accumulo";
+        }
+        logger.info("AppType: " + appType);
+        try {
+
+            accumuloPlugin = new RangerBasePlugin("accumulo", appType);
+            accumuloPlugin.init();
+        } catch (Throwable t) {
+            logger.fatal("Error creating and initializing RangerBasePlugin()", t);
+        }
+    }
+
+    @Override
+    public Authorizations getCachedUserAuthorizations(String user) {
+
+//        byte[] authsBytes = zooCache.get(ZKUserPath + "/" + user + ZKUserAuths);
+//        if (authsBytes != null) {
+//            return ZKSecurityTool.convertAuthorizations(authsBytes);
+//        }
+        return Authorizations.EMPTY;
+    }
 
     @Override
     public boolean validSecurityHandlers(Authenticator auth, PermissionHandler pm) {
         return auth instanceof KerberosAuthenticator && pm instanceof RangerAccumuloPermissionHandler;
+    }
+
+    @Override
+    public void initializeSecurity(TCredentials itw, String rootuser) throws AccumuloSecurityException {
+    }
+
+    @Override
+    public void initUser(String user) throws AccumuloSecurityException {
+    }
+
+    @Override
+    public void dropUser(String user) throws AccumuloSecurityException {
+    }
+
+    @Override
+    public void changeAuthorizations(String user, Authorizations authorizations) throws AccumuloSecurityException {
+    }
+
+    @Override
+    public boolean isValidAuthorizations(String user, List<ByteBuffer> auths) throws AccumuloSecurityException {
+
+        List<RangerAccessRequest> requestList = new ArrayList<>();
+        RangerMultiResourceAuditHandler auditHandler = new RangerMultiResourceAuditHandler();
+        for (ByteBuffer auth : auths) {
+            String authString = new String(auth.array(), Charsets.UTF_8);
+            RangerAccessRequestImpl request = new RangerAccessRequestImpl();
+            request.setAccessType(ACCESS_TYPE);
+            request.setAction(ACCESS_TYPE);
+            request.setUser(getShortname(user));
+            request.setRemoteIPAddress(ipAddress);
+            RangerAccessResourceImpl resource = new RangerAccessResourceImpl();
+            resource.setValue(RESOURCE_KEY_AUTHORIZATION, authString);
+            request.setResource(resource);
+            requestList.add(request);
+        }
+        Collection<RangerAccessResult> results = null;
+
+        try {
+            results = accumuloPlugin.isAccessAllowed(requestList, auditHandler);
+        } finally {
+            auditHandler.flushAudit();
+        }
+        boolean isAllowed = true;
+        if (results != null) {
+            for (RangerAccessResult result : results) {
+                if (!result.getIsAllowed()) {
+                    return false;
+                }
+            }
+            return true;
+        } else {
+            return false;
+        }
+
+    }
+
+    protected String getShortname(String user) {
+        KerberosName name = new KerberosName(user);
+        String shortname = null;
+        try {
+            shortname = name.getShortName();
+        } catch (IOException ex) {
+            shortname = user;
+        }
+        return shortname;
     }
 }
