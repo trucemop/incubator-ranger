@@ -39,6 +39,8 @@ import org.apache.accumulo.server.security.handler.PermissionHandler;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.security.authentication.util.KerberosName;
+import org.apache.ranger.plugin.audit.RangerAccumuloAuditHandler;
+import org.apache.ranger.plugin.audit.RangerDefaultAuditHandler;
 import org.apache.ranger.plugin.audit.RangerMultiResourceAuditHandler;
 import org.apache.ranger.plugin.model.RangerPolicy;
 import org.apache.ranger.plugin.policyengine.RangerAccessRequest;
@@ -84,6 +86,7 @@ public class RangerAccumuloAuthorizer extends KerberosAuthorizor {
 
     @Override
     public Authorizations getCachedUserAuthorizations(String user) {
+
         Authorizations authorizations = Authorizations.EMPTY;
         List<byte[]> authorizationList = new ArrayList<>();
         List<RangerPolicy> policyList = accumuloPlugin.getPolicyEngine().getAllowedPolicies(user, Collections.EMPTY_SET, ACCESS_TYPE);
@@ -101,7 +104,7 @@ public class RangerAccumuloAuthorizer extends KerberosAuthorizor {
                 }
             }
         }
-
+        logger.info("getCachedUserAuthorizations");
         if (authorizationList.size() > 0) {
             authorizations = new Authorizations(authorizationList);
         }
@@ -133,8 +136,10 @@ public class RangerAccumuloAuthorizer extends KerberosAuthorizor {
     @Override
     public boolean isValidAuthorizations(String user, List<ByteBuffer> auths) throws AccumuloSecurityException {
 
+        List<String> authStrings = new ArrayList<>();
         List<RangerAccessRequest> requestList = new ArrayList<>();
-        RangerMultiResourceAuditHandler auditHandler = new RangerMultiResourceAuditHandler();
+        RangerAccumuloAuditHandler auditHandler = new RangerAccumuloAuditHandler();
+
         for (ByteBuffer auth : auths) {
             String authString = new String(auth.array(), Charsets.UTF_8);
             RangerAccessRequestImpl request = new RangerAccessRequestImpl();
@@ -144,17 +149,22 @@ public class RangerAccumuloAuthorizer extends KerberosAuthorizor {
             request.setRemoteIPAddress(ipAddress);
             RangerAccessResourceImpl resource = new RangerAccessResourceImpl();
             resource.setValue(RESOURCE_KEY_AUTHORIZATION, authString);
+            resource.setOwnerUser(user);
             request.setResource(resource);
             requestList.add(request);
+            authStrings.add(authString);
         }
+
+        logger.info("isValidAuthorizations for user: " + user + " with auth request list: " + authStrings.toString());
+
         Collection<RangerAccessResult> results = null;
 
         try {
-            results = accumuloPlugin.isAccessAllowed(requestList, auditHandler);
+            results = accumuloPlugin.isAccessAllowed(requestList, auditHandler, true);
         } finally {
             auditHandler.flushAudit();
         }
-        boolean isAllowed = true;
+
         if (results != null) {
             for (RangerAccessResult result : results) {
                 if (!result.getIsAllowed()) {

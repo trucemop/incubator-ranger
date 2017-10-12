@@ -128,6 +128,7 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
         request.setRemoteIPAddress(ipAddress);
         RangerAccessResourceImpl resource = new RangerAccessResourceImpl();
         resource.setValue(RESOURCE_KEY_SYSTEM, RESOURCE_KEY_SYSTEM);
+        resource.setOwnerUser(user);
         request.setResource(resource);
         RangerAccessResult result = null;
         try {
@@ -177,6 +178,7 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
 
         RangerAccessResourceImpl resource = new RangerAccessResourceImpl();
         resource.setValue(RESOURCE_KEY_TABLE, namespaceName + tableName);
+        resource.setOwnerUser(user);
         request.setResource(resource);
 
         RangerAccessResult result = null;
@@ -219,6 +221,7 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
         }
 
         resource.setValue(RESOURCE_KEY_NAMESPACE, namespaceName);
+        resource.setOwnerUser(user);
         request.setResource(resource);
         RangerAccessResult result = null;
         try {

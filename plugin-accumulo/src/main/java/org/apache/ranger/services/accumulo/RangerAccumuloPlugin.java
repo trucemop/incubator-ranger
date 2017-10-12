@@ -18,6 +18,7 @@
  */
 package org.apache.ranger.services.accumulo;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Hashtable;
 import java.util.Map;
@@ -134,7 +135,7 @@ public class RangerAccumuloPlugin extends RangerBasePlugin {
         try {
             RangerPolicyEngine oldPolicyEngine = this.policyEngine;
 
-            RangerPolicyEngine policyEngine = new RangerPolicyEngineImpl(appId, policies, policyEngineOptions);
+            RangerPolicyEngine policyEngine = new RangerAccumuloPolicyEngineImpl(appId, policies, policyEngineOptions);
             policyEngine.setUseForwardedIPAddress(useForwardedIPAddress);
             policyEngine.setTrustedProxyAddresses(trustedProxyAddresses);
 
@@ -200,12 +201,24 @@ public class RangerAccumuloPlugin extends RangerBasePlugin {
     }
 
     public Collection<RangerAccessResult> isAccessAllowed(Collection<RangerAccessRequest> requests, RangerAccessResultProcessor resultProcessor) {
-        RangerPolicyEngine policyEngine = this.policyEngine;
+        return isAccessAllowed(requests, resultProcessor, false);
+    }
+
+    public Collection<RangerAccessResult> isAccessAllowed(Collection<RangerAccessRequest> requests, RangerAccessResultProcessor resultProcessor, boolean audit) {
 
         if (policyEngine != null) {
             policyEngine.preProcess(requests);
-
-            return policyEngine.isAccessAllowed(requests, resultProcessor);
+            if (audit) {
+                Collection<RangerAccessResult> results = new ArrayList<>();
+                for (RangerAccessRequest request : requests) {
+                    RangerAccessResult result = policyEngine.isAccessAllowed(request, resultProcessor);
+                    result.setIsAudited(true);
+                    results.add(result);
+                }
+                return results;
+            } else {
+                return policyEngine.isAccessAllowed(requests, resultProcessor);
+            }
         }
 
         return null;
