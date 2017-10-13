@@ -119,6 +119,7 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
     @Override
     public boolean hasSystemPermission(String user, SystemPermission permission) throws AccumuloSecurityException {
 
+        logger.info("hasSystemPermission for user: " + user + " requesting: " + permission.toString());
         boolean isAllowed = false;
         RangerAccessRequestImpl request = new RangerAccessRequestImpl();
         RangerMultiResourceAuditHandler auditHandler = new RangerMultiResourceAuditHandler();
@@ -150,6 +151,7 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
 
     @Override
     public boolean hasTablePermission(String user, String table, TablePermission permission) throws AccumuloSecurityException, TableNotFoundException {
+        logger.info("hasTablePermission for user: " + user + " on table: " + table + " with permission: " + permission.toString());
         boolean isAllowed = false;
         String tableName = table;
         String namespaceName = "";
@@ -201,6 +203,8 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
     @Override
     public boolean hasNamespacePermission(String user, String namespace, NamespacePermission permission) throws AccumuloSecurityException,
             NamespaceNotFoundException {
+
+        logger.info("hasNamespacePermission for user: " + user + " on namespace: " + namespace + " with permission: " + permission.toString());
         boolean isAllowed = false;
 
         String namespaceName = namespace;

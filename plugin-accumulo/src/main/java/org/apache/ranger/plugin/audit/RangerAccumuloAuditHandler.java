@@ -28,8 +28,29 @@ public class RangerAccumuloAuditHandler extends RangerDefaultAuditHandler {
 
     public void flushAudit() {
         try {
+            boolean deniedExists = false;
+
+            AuthzAuditEvent rollup = null;
+            StringBuilder sb = new StringBuilder();
             for (AuthzAuditEvent auditEvent : auditEvents) {
-                super.logAuthzAudit(auditEvent);
+                if (rollup == null) {
+                    rollup = auditEvent;
+                }
+                if (auditEvent.getAccessResult() == 0) {
+                    deniedExists = true;
+                }
+                sb.append(auditEvent.getResourcePath());
+                sb.append(",");
+            }
+
+            if (rollup != null) {
+                sb.deleteCharAt(sb.length() - 1);
+                rollup.setResourcePath(sb.toString());
+                if (deniedExists) {
+                    rollup.setAccessResult((short) 0);
+                }
+
+                super.logAuthzAudit(rollup);
             }
         } catch (Throwable t) {
 

@@ -104,7 +104,7 @@ public class RangerAccumuloAuthorizer extends KerberosAuthorizor {
                 }
             }
         }
-        logger.info("getCachedUserAuthorizations");
+        logger.info("getCachedUserAuthorizations for user: " + user);
         if (authorizationList.size() > 0) {
             authorizations = new Authorizations(authorizationList);
         }
