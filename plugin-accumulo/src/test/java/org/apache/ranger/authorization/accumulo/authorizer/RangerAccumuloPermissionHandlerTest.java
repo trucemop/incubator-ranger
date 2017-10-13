@@ -158,11 +158,20 @@ public class RangerAccumuloPermissionHandlerTest {
     public void testTableAndNamespacePermissions() throws Exception {
 
         String instanceId = "instanceId";
+        String namespaceName1 = Namespaces.DEFAULT_NAMESPACE_ID;
         String tableId1 = "3";
+        String tableName1 = "bar";
+
+        String namespaceId2 = "r";
+        String namespaceName2 = "foo";
         String tableId2 = "4";
-        String namespaceId = "r";
-        String namespaceName = "foo";
-        String tableName = "bar";
+        String tableName2 = "bar";
+
+        String namespaceId3 = "q";
+        String namespaceName3 = "what";
+
+        String tableId3 = "6";
+        String tableName3 = "bar";
 
         ZooCache mockZc = (ZooCache) mock(ZooCache.class);
 
@@ -170,16 +179,23 @@ public class RangerAccumuloPermissionHandlerTest {
 
         basicRap.initialize(instanceId, true);
 
-        when(mockZc.get(basicRap.ZKTablePath + "/" + tableId1 + Constants.ZTABLE_NAME)).thenReturn(tableName.getBytes());
-        when(mockZc.get(basicRap.ZKTablePath + "/" + tableId1 + Constants.ZTABLE_NAMESPACE)).thenReturn(Namespaces.DEFAULT_NAMESPACE_ID.getBytes());
-        when(mockZc.get(basicRap.ZKTablePath + "/" + tableId2 + Constants.ZTABLE_NAME)).thenReturn(tableName.getBytes());
-        when(mockZc.get(basicRap.ZKTablePath + "/" + tableId2 + Constants.ZTABLE_NAMESPACE)).thenReturn(namespaceId.getBytes());
-        when(mockZc.get(basicRap.ZKNamespacePath + "/" + namespaceId + Constants.ZNAMESPACE_NAME)).thenReturn(namespaceName.getBytes());
+        when(mockZc.get(basicRap.ZKTablePath + "/" + tableId1 + Constants.ZTABLE_NAME)).thenReturn(tableName1.getBytes());
+        when(mockZc.get(basicRap.ZKTablePath + "/" + tableId1 + Constants.ZTABLE_NAMESPACE)).thenReturn(namespaceName1.getBytes());
+
+        when(mockZc.get(basicRap.ZKTablePath + "/" + tableId2 + Constants.ZTABLE_NAME)).thenReturn(tableName2.getBytes());
+        when(mockZc.get(basicRap.ZKTablePath + "/" + tableId2 + Constants.ZTABLE_NAMESPACE)).thenReturn(namespaceId2.getBytes());
+        when(mockZc.get(basicRap.ZKNamespacePath + "/" + namespaceId2 + Constants.ZNAMESPACE_NAME)).thenReturn(namespaceName2.getBytes());
+
+        when(mockZc.get(basicRap.ZKTablePath + "/" + tableId3 + Constants.ZTABLE_NAME)).thenReturn(tableName3.getBytes());
+        when(mockZc.get(basicRap.ZKTablePath + "/" + tableId3 + Constants.ZTABLE_NAMESPACE)).thenReturn(namespaceId3.getBytes());
+        when(mockZc.get(basicRap.ZKNamespacePath + "/" + namespaceId3 + Constants.ZNAMESPACE_NAME)).thenReturn(namespaceName3.getBytes());
 
         RangerAccumuloPermissionHandler.accumuloPlugin.setPolicies(joeHasSomePolicies);
         assertTrue(basicRap.hasTablePermission("joe", tableId1, TablePermission.READ));
 
         assertFalse(basicRap.hasTablePermission("joe", tableId2, TablePermission.READ));
+
+        assertTrue(basicRap.hasTablePermission("joe", tableId3, TablePermission.READ));
 
     }
 

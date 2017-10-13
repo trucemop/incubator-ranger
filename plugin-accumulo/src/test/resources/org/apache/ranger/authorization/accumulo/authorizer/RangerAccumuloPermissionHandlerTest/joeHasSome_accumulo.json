@@ -43,6 +43,46 @@
       "id": 4,
       "isEnabled": true,
       "version": 1
+    },
+    {
+      "service": "test_accumulo",
+      "name": "namespace policy",
+      "policyType": 0,
+      "description": "Policy for testing namespaces",
+      "isAuditEnabled": true,
+      "resources": {
+        "namespace": {
+          "values": [
+            "what"
+          ],
+          "isExcludes": false,
+          "isRecursive": false
+        }
+      },
+      "policyItems": [
+        {
+          "accesses": [
+            {
+              "type": "READ",
+              "isAllowed": true
+            }
+          ],
+          "users": [
+            "joe"
+          ],
+          "groups": [],
+          "conditions": [],
+          "delegateAdmin": true
+        }
+      ],
+      "denyPolicyItems": [],
+      "allowExceptions": [],
+      "denyExceptions": [],
+      "dataMaskPolicyItems": [],
+      "rowFilterPolicyItems": [],
+      "id": 5,
+      "isEnabled": true,
+      "version": 1
     }
   ],
   "serviceDef": {

@@ -41,6 +41,7 @@ import org.apache.accumulo.server.zookeeper.ZooCache;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.security.authentication.util.KerberosName;
+import org.apache.ranger.plugin.audit.RangerAccumuloAuditHandler;
 import org.apache.ranger.plugin.audit.RangerMultiResourceAuditHandler;
 import org.apache.ranger.plugin.policyengine.RangerAccessRequestImpl;
 import org.apache.ranger.plugin.policyengine.RangerAccessResourceImpl;
@@ -135,7 +136,8 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
         try {
             result = accumuloPlugin.isAccessAllowed(request, auditHandler);
         } finally {
-            auditHandler.flushAudit();
+            //silent for now
+            //auditHandler.flushAudit();
         }
         if (result != null) {
             isAllowed = result.getIsAllowed();
@@ -154,9 +156,10 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
         logger.info("hasTablePermission for user: " + user + " on table: " + table + " with permission: " + permission.toString());
         boolean isAllowed = false;
         String tableName = table;
-        String namespaceName = "";
+        String namespaceName = null;
+        String namespacePrefix = "";
         RangerAccessRequestImpl request = new RangerAccessRequestImpl();
-        RangerMultiResourceAuditHandler auditHandler = new RangerMultiResourceAuditHandler();
+        RangerAccumuloAuditHandler auditHandler = new RangerAccumuloAuditHandler();
         request.setAccessType(permission.toString());
         request.setAction(permission.toString());
         request.setUser(getShortname(user));
@@ -171,7 +174,9 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
                 if (!Namespaces.DEFAULT_NAMESPACE_ID.equals(namespaceId)) {
                     byte[] namespaceNameBytes = getNamespaceName(namespaceId);
                     if (namespaceNameBytes != null) {
-                        namespaceName = new String(namespaceNameBytes, Charsets.UTF_8) + ".";
+                        namespaceName = new String(namespaceNameBytes, Charsets.UTF_8);
+                        namespacePrefix = namespaceName + ".";
+
                     }
                 }
             }
@@ -179,19 +184,34 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
         }
 
         RangerAccessResourceImpl resource = new RangerAccessResourceImpl();
-        resource.setValue(RESOURCE_KEY_TABLE, namespaceName + tableName);
+        resource.setValue(RESOURCE_KEY_TABLE, namespacePrefix + tableName);
         resource.setOwnerUser(user);
         request.setResource(resource);
 
-        RangerAccessResult result = null;
+        RangerAccessResult tableResult = null;
+        RangerAccessResult namespaceResult = null;
         try {
-            result = accumuloPlugin.isAccessAllowed(request, auditHandler);
+            tableResult = accumuloPlugin.isAccessAllowed(request, auditHandler);
+            if (tableResult != null) {
+                if (!tableResult.getIsAllowed()) {
+                    if (namespaceName != null) {
+                        RangerAccessResourceImpl namespaceResource = new RangerAccessResourceImpl();
+                        namespaceResource.setValue(RESOURCE_KEY_NAMESPACE, namespaceName);
+                        namespaceResource.setOwnerUser(user);
+                        request.setResource(namespaceResource);
+                        namespaceResult = accumuloPlugin.isAccessAllowed(request);
+                        if (namespaceResult != null && namespaceResult.getIsAllowed()) {
+                            isAllowed = true;
+                        }
+                    }
+                } else {
+                    isAllowed = true;
+                }
+            }
         } finally {
-            auditHandler.flushAudit();
+            auditHandler.flushAudit(isAllowed);
         }
-        if (result != null) {
-            isAllowed = result.getIsAllowed();
-        }
+
         return isAllowed;
     }
 
@@ -210,7 +230,7 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
         String namespaceName = namespace;
 
         RangerAccessRequestImpl request = new RangerAccessRequestImpl();
-        RangerMultiResourceAuditHandler auditHandler = new RangerMultiResourceAuditHandler();
+        RangerAccumuloAuditHandler auditHandler = new RangerAccumuloAuditHandler();
         request.setAccessType(permission.toString());
         request.setAction(permission.toString());
         request.setUser(getShortname(user));
@@ -218,12 +238,13 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
 
         RangerAccessResourceImpl resource = new RangerAccessResourceImpl();
 
-        byte[] namespaceBytes = getNamespaceName(namespace);
+        if (!Namespaces.DEFAULT_NAMESPACE_ID.equals(namespaceName)) {
+            byte[] namespaceBytes = getNamespaceName(namespace);
 
-        if (namespaceBytes != null) {
-            namespaceName = new String(namespaceBytes, Charsets.UTF_8);
+            if (namespaceBytes != null) {
+                namespaceName = new String(namespaceBytes, Charsets.UTF_8);
+            }
         }
-
         resource.setValue(RESOURCE_KEY_NAMESPACE, namespaceName);
         resource.setOwnerUser(user);
         request.setResource(resource);

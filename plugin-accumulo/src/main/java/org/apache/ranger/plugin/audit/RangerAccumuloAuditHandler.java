@@ -47,10 +47,23 @@ public class RangerAccumuloAuditHandler extends RangerDefaultAuditHandler {
                 sb.deleteCharAt(sb.length() - 1);
                 rollup.setResourcePath(sb.toString());
                 if (deniedExists) {
+                    rollup.setPolicyId(-1L);
                     rollup.setAccessResult((short) 0);
                 }
 
                 super.logAuthzAudit(rollup);
+            }
+        } catch (Throwable t) {
+
+        }
+    }
+
+    public void flushAudit(boolean forcedAuditResult) {
+        try {
+            short result = (forcedAuditResult) ? (short) 1 : 0;
+            for (AuthzAuditEvent auditEvent : auditEvents) {
+                auditEvent.setAccessResult(result);
+                super.logAuthzAudit(auditEvent);
             }
         } catch (Throwable t) {
 
