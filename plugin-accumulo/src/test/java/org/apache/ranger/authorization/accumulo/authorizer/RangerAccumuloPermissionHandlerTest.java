@@ -23,12 +23,16 @@ import com.google.gson.GsonBuilder;
 import java.io.File;
 import java.io.FileReader;
 import java.io.Reader;
+import javax.security.auth.login.AppConfigurationEntry;
 import org.apache.accumulo.core.Constants;
 import org.apache.accumulo.core.client.impl.Namespaces;
 import org.apache.accumulo.core.security.NamespacePermission;
 import org.apache.accumulo.core.security.SystemPermission;
 import org.apache.accumulo.core.security.TablePermission;
 import org.apache.accumulo.server.zookeeper.ZooCache;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.CommonConfigurationKeys;
+import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.ranger.plugin.util.ServicePolicies;
 import org.junit.Test;
 import static org.mockito.Mockito.mock;
@@ -66,8 +70,9 @@ public class RangerAccumuloPermissionHandlerTest {
     public void testAdminHasAllSystemPermissions() throws Exception {
 
         RangerAccumuloPermissionHandler.accumuloPlugin.setPolicies(adminHasAllPolicies);
-        assertTrue(basicRap.hasSystemPermission("admin", SystemPermission.GRANT));
-        assertTrue(basicRap.hasSystemPermission("admin", SystemPermission.CREATE_TABLE));
+
+        assertTrue(basicRap.hasSystemPermission("admin@EXAMPLE.COM", SystemPermission.GRANT));
+        assertTrue(basicRap.hasSystemPermission("admin/fqdn.server.net@EXAMPLE.COM", SystemPermission.CREATE_TABLE));
         assertTrue(basicRap.hasSystemPermission("admin", SystemPermission.DROP_TABLE));
         assertTrue(basicRap.hasSystemPermission("admin", SystemPermission.ALTER_TABLE));
         assertTrue(basicRap.hasSystemPermission("admin", SystemPermission.CREATE_USER));
@@ -102,6 +107,7 @@ public class RangerAccumuloPermissionHandlerTest {
     public void testAdminHasAllTablePermission() throws Exception {
 
         RangerAccumuloPermissionHandler.accumuloPlugin.setPolicies(adminHasAllPolicies);
+
         assertTrue(basicRap.hasTablePermission("admin", "test", TablePermission.READ));
         assertTrue(basicRap.hasTablePermission("admin", "test", TablePermission.WRITE));
         assertTrue(basicRap.hasTablePermission("admin", "test", TablePermission.BULK_IMPORT));
@@ -205,6 +211,14 @@ public class RangerAccumuloPermissionHandlerTest {
         RangerAccumuloPermissionHandler.accumuloPlugin.setPolicies(adminHasAllPolicies);
         System.setProperty("hadoop.security.auth_to_local", "RULE:[1:$1@$0](admin@EXAMPLE.COM)s/.*/admin/");
         assertTrue(basicRap.hasNamespacePermission("admin/fqdn.stuff.com@REALM.COM", "testNamespace", NamespacePermission.READ));
+    }
+
+    private static class DummyLoginConfiguration extends javax.security.auth.login.Configuration {
+
+        @Override
+        public AppConfigurationEntry[] getAppConfigurationEntry(String name) {
+            throw new RuntimeException("UGI is not using its own security config");
+        }
     }
 
 }

@@ -19,7 +19,6 @@
 package org.apache.ranger.authorization.accumulo.authorizer;
 
 import com.google.common.base.Charsets;
-import java.io.IOException;
 import java.net.Inet4Address;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
@@ -28,6 +27,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.security.Authorizations;
@@ -38,10 +38,8 @@ import org.apache.accumulo.server.security.handler.KerberosAuthorizor;
 import org.apache.accumulo.server.security.handler.PermissionHandler;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.security.authentication.util.KerberosName;
+import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.ranger.plugin.audit.RangerAccumuloAuditHandler;
-import org.apache.ranger.plugin.audit.RangerDefaultAuditHandler;
-import org.apache.ranger.plugin.audit.RangerMultiResourceAuditHandler;
 import org.apache.ranger.plugin.model.RangerPolicy;
 import org.apache.ranger.plugin.policyengine.RangerAccessRequest;
 import org.apache.ranger.plugin.policyengine.RangerAccessRequestImpl;
@@ -54,6 +52,9 @@ public class RangerAccumuloAuthorizer extends KerberosAuthorizor {
     private static final Log logger = LogFactory
             .getLog(RangerAccumuloAuthorizer.class);
     private String ipAddress;
+
+    protected RangerAccumuloUgi rau = new RangerAccumuloUgi();
+
     protected static volatile RangerAccumuloPlugin accumuloPlugin = null;
 
     public static final String RESOURCE_KEY_AUTHORIZATION = "authorization";
@@ -136,6 +137,11 @@ public class RangerAccumuloAuthorizer extends KerberosAuthorizor {
     @Override
     public boolean isValidAuthorizations(String user, List<ByteBuffer> auths) throws AccumuloSecurityException {
 
+        UserGroupInformation ugi = user == null ? null : rau.createRemoteUser(user);
+        String name = ugi == null ? user : rau.getShortUserName(ugi);
+        Set<String> groupSet = rau.getGroupNames(ugi);
+        String groups = groupSet.toString();
+
         List<String> authStrings = new ArrayList<>();
         List<RangerAccessRequest> requestList = new ArrayList<>();
         RangerAccumuloAuditHandler auditHandler = new RangerAccumuloAuditHandler();
@@ -145,8 +151,9 @@ public class RangerAccumuloAuthorizer extends KerberosAuthorizor {
             RangerAccessRequestImpl request = new RangerAccessRequestImpl();
             request.setAccessType(ACCESS_TYPE);
             request.setAction(ACCESS_TYPE);
-            request.setUser(getShortname(user));
-            request.setRemoteIPAddress(ipAddress);
+            request.setUser(name);
+            request.setUserGroups(groupSet);
+            request.setClientIPAddress(ipAddress);
             RangerAccessResourceImpl resource = new RangerAccessResourceImpl();
             resource.setValue(RESOURCE_KEY_AUTHORIZATION, authString);
             resource.setOwnerUser(user);
@@ -155,7 +162,7 @@ public class RangerAccumuloAuthorizer extends KerberosAuthorizor {
             authStrings.add(authString);
         }
 
-        logger.info("isValidAuthorizations for user: " + user + " with auth request list: " + authStrings.toString());
+        logger.info("isValidAuthorizations for user: " + user + " with groups: " + groups + " and auth request list: " + authStrings.toString());
 
         Collection<RangerAccessResult> results = null;
 
@@ -178,14 +185,4 @@ public class RangerAccumuloAuthorizer extends KerberosAuthorizor {
 
     }
 
-    protected String getShortname(String user) {
-        KerberosName name = new KerberosName(user);
-        String shortname = null;
-        try {
-            shortname = name.getShortName();
-        } catch (IOException ex) {
-            shortname = user;
-        }
-        return shortname;
-    }
 }

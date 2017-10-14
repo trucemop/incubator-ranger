@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.ranger.plugin.util.RangerPerfTracer;
 import org.apache.ranger.plugin.util.ServicePolicies;
 
 public class RangerAccumuloPolicyEngineImpl extends RangerPolicyEngineImpl {

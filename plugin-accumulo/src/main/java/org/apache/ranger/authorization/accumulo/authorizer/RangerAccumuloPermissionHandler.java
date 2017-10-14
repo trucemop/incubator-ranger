@@ -19,7 +19,6 @@
 package org.apache.ranger.authorization.accumulo.authorizer;
 
 import com.google.common.base.Charsets;
-import java.io.IOException;
 import java.net.Inet4Address;
 import java.net.UnknownHostException;
 import org.apache.accumulo.core.Constants;
@@ -40,13 +39,14 @@ import org.apache.accumulo.server.security.handler.PermissionHandler;
 import org.apache.accumulo.server.zookeeper.ZooCache;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.security.authentication.util.KerberosName;
+import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.ranger.plugin.audit.RangerAccumuloAuditHandler;
 import org.apache.ranger.plugin.audit.RangerMultiResourceAuditHandler;
 import org.apache.ranger.plugin.policyengine.RangerAccessRequestImpl;
 import org.apache.ranger.plugin.policyengine.RangerAccessResourceImpl;
 import org.apache.ranger.plugin.policyengine.RangerAccessResult;
 import org.apache.ranger.services.accumulo.RangerAccumuloPlugin;
+import java.util.Set;
 
 public class RangerAccumuloPermissionHandler implements PermissionHandler {
 
@@ -64,9 +64,12 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
 
     protected static volatile RangerAccumuloPlugin accumuloPlugin = null;
 
+    protected RangerAccumuloUgi rau = new RangerAccumuloUgi();
+
     public RangerAccumuloPermissionHandler() {
         logger.info("RangerAccumuloAuthorizer()");
         zooCache = new ZooCache();
+
     }
 
     protected RangerAccumuloPermissionHandler(ZooCache zc) {
@@ -120,25 +123,25 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
     @Override
     public boolean hasSystemPermission(String user, SystemPermission permission) throws AccumuloSecurityException {
 
-        logger.info("hasSystemPermission for user: " + user + " requesting: " + permission.toString());
+        UserGroupInformation ugi = user == null ? null : rau.createRemoteUser(user);
+        String name = ugi == null ? user : rau.getShortUserName(ugi);
+        Set<String> groupSet = rau.getGroupNames(ugi);
+        String groups = groupSet.toString();
+
+        logger.info("hasSystemPermission for user: " + user + " with groups: " + groups + " requesting: " + permission.toString());
         boolean isAllowed = false;
         RangerAccessRequestImpl request = new RangerAccessRequestImpl();
         RangerMultiResourceAuditHandler auditHandler = new RangerMultiResourceAuditHandler();
         request.setAccessType(permission.toString());
         request.setAction(permission.toString());
-        request.setUser(getShortname(user));
-        request.setRemoteIPAddress(ipAddress);
+        request.setUser(name);
+        request.setUserGroups(groupSet);
+        request.setClientIPAddress(ipAddress);
         RangerAccessResourceImpl resource = new RangerAccessResourceImpl();
         resource.setValue(RESOURCE_KEY_SYSTEM, RESOURCE_KEY_SYSTEM);
-        resource.setOwnerUser(user);
         request.setResource(resource);
-        RangerAccessResult result = null;
-        try {
-            result = accumuloPlugin.isAccessAllowed(request, auditHandler);
-        } finally {
-            //silent for now
-            //auditHandler.flushAudit();
-        }
+        RangerAccessResult result = accumuloPlugin.isAccessAllowed(request, auditHandler);
+
         if (result != null) {
             isAllowed = result.getIsAllowed();
         }
@@ -153,7 +156,13 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
 
     @Override
     public boolean hasTablePermission(String user, String table, TablePermission permission) throws AccumuloSecurityException, TableNotFoundException {
-        logger.info("hasTablePermission for user: " + user + " on table: " + table + " with permission: " + permission.toString());
+
+        UserGroupInformation ugi = user == null ? null : rau.createRemoteUser(user);
+        String name = ugi == null ? user : rau.getShortUserName(ugi);
+        Set<String> groupSet = rau.getGroupNames(ugi);
+        String groups = groupSet.toString();
+
+        logger.info("hasTablePermission for user: " + name + " with groups: " + groups + " on table: " + table + " with permission: " + permission.toString());
         boolean isAllowed = false;
         String tableName = table;
         String namespaceName = null;
@@ -162,8 +171,9 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
         RangerAccumuloAuditHandler auditHandler = new RangerAccumuloAuditHandler();
         request.setAccessType(permission.toString());
         request.setAction(permission.toString());
-        request.setUser(getShortname(user));
-        request.setRemoteIPAddress(ipAddress);
+        request.setUser(name);
+        request.setUserGroups(groupSet);
+        request.setClientIPAddress(ipAddress);
         byte[] tableBytes = getTableName(table);
 
         if (tableBytes != null) {
@@ -185,7 +195,6 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
 
         RangerAccessResourceImpl resource = new RangerAccessResourceImpl();
         resource.setValue(RESOURCE_KEY_TABLE, namespacePrefix + tableName);
-        resource.setOwnerUser(user);
         request.setResource(resource);
 
         RangerAccessResult tableResult = null;
@@ -197,7 +206,6 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
                     if (namespaceName != null) {
                         RangerAccessResourceImpl namespaceResource = new RangerAccessResourceImpl();
                         namespaceResource.setValue(RESOURCE_KEY_NAMESPACE, namespaceName);
-                        namespaceResource.setOwnerUser(user);
                         request.setResource(namespaceResource);
                         namespaceResult = accumuloPlugin.isAccessAllowed(request);
                         if (namespaceResult != null && namespaceResult.getIsAllowed()) {
@@ -224,7 +232,12 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
     public boolean hasNamespacePermission(String user, String namespace, NamespacePermission permission) throws AccumuloSecurityException,
             NamespaceNotFoundException {
 
-        logger.info("hasNamespacePermission for user: " + user + " on namespace: " + namespace + " with permission: " + permission.toString());
+        UserGroupInformation ugi = user == null ? null : rau.createRemoteUser(user);
+        String name = ugi == null ? user : rau.getShortUserName(ugi);
+        Set<String> groupSet = rau.getGroupNames(ugi);
+        String groups = groupSet.toString();
+
+        logger.info("hasNamespacePermission for user: " + user + " with groups: " + groups + " on namespace: " + namespace + " with permission: " + permission.toString());
         boolean isAllowed = false;
 
         String namespaceName = namespace;
@@ -233,8 +246,9 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
         RangerAccumuloAuditHandler auditHandler = new RangerAccumuloAuditHandler();
         request.setAccessType(permission.toString());
         request.setAction(permission.toString());
-        request.setUser(getShortname(user));
-        request.setRemoteIPAddress(ipAddress);
+        request.setUser(name);
+        request.setUserGroups(groupSet);
+        request.setClientIPAddress(ipAddress);
 
         RangerAccessResourceImpl resource = new RangerAccessResourceImpl();
 
@@ -319,14 +333,4 @@ public class RangerAccumuloPermissionHandler implements PermissionHandler {
         //nothing to be done
     }
 
-    protected String getShortname(String user) {
-        KerberosName name = new KerberosName(user);
-        String shortname = null;
-        try {
-            shortname = name.getShortName();
-        } catch (IOException ex) {
-            shortname = user;
-        }
-        return shortname;
-    }
 }
